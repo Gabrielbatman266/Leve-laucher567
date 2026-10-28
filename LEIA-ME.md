@@ -14,3 +14,17 @@ Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no n
 - Linha de RAM / CPU / bateria embaixo da data (toque nela para abrir Sistema).
 - Animação do fundo: estrelas piscando devagar e estrela cadente rara. Para sozinha
   fora da tela inicial e no modo economia de bateria.
+
+---
+
+# Launcher Leve Profissional (pasta `profissional/`)
+
+Tela inicial limpa, com letras e botões grandes, fácil para qualquer pessoa.
+
+- Relógio enorme, dia da semana, tempo (temperatura, máxima e mínima) e bateria.
+- Atalhos: **Limpar celular** (limpador da Xiaomi), **Não perturbe** (liga/desliga com um toque),
+  **Carregar melhor** (fecha apps em 2º plano + dicas) e **Configurações**.
+- **Meus aplicativos**: grade com ícones grandes. Na primeira vez entram Telefone, WhatsApp,
+  Mensagens, Câmera, Galeria, YouTube, Facebook, Kwai, Instagram e os apps de banco instalados.
+- **Todos os aplicativos**: lista grande com busca. Segure o dedo num app para colocar na tela inicial.
+- **Tamanho da letra**: Normal, Grande ou Muito grande.

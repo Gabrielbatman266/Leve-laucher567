@@ -33,6 +33,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp app/build/outputs/apk/release/app-release.apk LeveLauncher.apk
-          gh release create "v${{ github.run_number }}" LeveLauncher.apk \
+          cp profissional/build/outputs/apk/release/profissional-release.apk LauncherLeveProfissional.apk
+          gh release create "v${{ github.run_number }}" LeveLauncher.apk LauncherLeveProfissional.apk \
             --title "Leve Launcher v${{ github.run_number }}" \
-            --notes "Baixe o LeveLauncher.apk abaixo e instale no celular. Instala por cima da versão anterior."
+            --notes "LeveLauncher.apk = launcher minimalista espacial. LauncherLeveProfissional.apk = launcher com letras grandes e fácil de usar. Os dois instalam por cima da versão anterior."
