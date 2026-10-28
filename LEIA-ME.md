@@ -1,4 +1,4 @@
-# Leve Launcher v8
+# Leve Launcher v9
 
 Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no nome da aba.
 
@@ -10,7 +10,8 @@ Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no n
 - **Novos**: apps baixados nos últimos 30 dias, separados em Hoje, Ontem, Esta semana e Este mês.
   Na lista Todos, apps com menos de 3 dias ganham o selo "novo".
 - **Frequentes**: os 12 apps que você mais abre.
-- **Todos**: todos os apps, inclusive clones, separados por letra.
+- **Todos**: todos os apps, inclusive clones. Botões para organizar: **A–Z**, **Categorias**
+  (Jogos, Conversas, Redes sociais, Bancos, Vídeo, Música...), **Tamanho** (do maior para o menor) e **Jogos**.
 - **Bateria**: nível, consumo agora, tempo restante, temperatura e os apps que mais
   ficaram ativos hoje. Toque num app para fechar em 2º plano ou restringir a bateria dele.
   Precisa liberar "Acesso ao uso" uma vez (o próprio launcher leva até a tela).

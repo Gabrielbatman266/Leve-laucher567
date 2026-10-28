@@ -78,13 +78,14 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * Leve Launcher v8 — tela inicial minimalista com tema espacial.
+ * Leve Launcher v9 — tela inicial minimalista com tema espacial.
  *
  * Abas (toque no nome ou deslize para os lados):
  *   Essenciais  – seus atalhos organizados + controle de música
  *   Novos       – apps baixados nos últimos 30 dias
  *   Frequentes  – os apps que você mais abre
- *   Todos       – todos os apps (inclusive clones), separados por letra
+ *   Todos       – todos os apps (inclusive clones), organizados por A–Z,
+ *                 categoria, tamanho ou só jogos
  *   Bateria     – nível, consumo, tempo restante e quais apps mais gastaram hoje
  *   Sistema     – RAM, CPU, temperatura, armazenamento
  *
@@ -133,6 +134,9 @@ public class MainActivity extends Activity {
         final UserHandle user;
         final boolean clone;
         long installed;
+        long size;            // tamanho em bytes (app; + dados se o "Acesso ao uso" estiver liberado)
+        String cat = "Outros";
+        boolean game;
 
         App(String label, ComponentName component, UserHandle user, long serial, boolean clone) {
             this.label = label;
@@ -216,6 +220,7 @@ public class MainActivity extends Activity {
         launcherApps = (LauncherApps) getSystemService(LAUNCHER_APPS_SERVICE);
         userManager = (UserManager) getSystemService(USER_SERVICE);
         loadUsage();
+        sortMode = Math.max(0, Math.min(3, prefs.getInt("ordem", SORT_AZ)));
         setContentView(buildUi());
 
         statsThread = new HandlerThread("leve-stats");
@@ -460,6 +465,108 @@ public class MainActivity extends Activity {
 
     private final LinearLayout[] dockViews = new LinearLayout[5];
 
+    // ---------- Organizar apps ----------
+    private static final int SORT_AZ = 0, SORT_CAT = 1, SORT_SIZE = 2, SORT_GAMES = 3;
+    private static final String[] SORT_NAMES = {"A–Z", "Categorias", "Tamanho", "Jogos"};
+    private static final String[] CATEGORIES = {
+            "Jogos", "Conversas", "Redes sociais", "Vídeo e TV", "Música e áudio", "Fotos e câmera",
+            "Bancos e pagamentos", "Compras", "Navegadores", "Mapas e transporte", "Produtividade",
+            "Notícias e leitura", "Ferramentas", "Sistema", "Outros"};
+    private android.widget.HorizontalScrollView sortBar;
+    private final TextView[] sortChips = new TextView[SORT_NAMES.length];
+    private int sortMode = SORT_AZ;
+
+    private static long apkSize(android.content.pm.ApplicationInfo ai) {
+        long total = 0;
+        try {
+            if (ai.sourceDir != null) total += new java.io.File(ai.sourceDir).length();
+            if (ai.splitSourceDirs != null) {
+                for (String sp : ai.splitSourceDirs) total += new java.io.File(sp).length();
+            }
+        } catch (Exception ignored) { }
+        return total;
+    }
+
+    @SuppressWarnings("deprecation")
+    private static boolean isGame(android.content.pm.ApplicationInfo ai) {
+        if (Build.VERSION.SDK_INT >= 26 && ai.category == android.content.pm.ApplicationInfo.CATEGORY_GAME) return true;
+        return (ai.flags & android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0;
+    }
+
+    private static boolean has(String s, String... words) {
+        for (String w : words) if (s.contains(w)) return true;
+        return false;
+    }
+
+    /** Categoria pelo que o próprio app informa + palavras no nome. */
+    private static String categoryFor(android.content.pm.ApplicationInfo ai, String name, String pkg,
+                                      boolean system, boolean game) {
+        if (game) return "Jogos";
+        String n = name + " " + pkg.toLowerCase(Locale.ROOT);
+        if (has(n, "whatsapp", "telegram", "messenger", "signal", "discord", "mensagens", "messages", "sms"))
+            return "Conversas";
+        if (has(n, "instagram", "facebook", "threads", "tiktok", "kwai", "twitter", "x.android", "snapchat",
+                "pinterest", "reddit", "linkedin", "bluesky"))
+            return "Redes sociais";
+        if (name.equals("inter") || name.startsWith("banco inter") || name.startsWith("inter&")
+                || name.equals("c6") || name.startsWith("c6 ")
+                || has(n, "nubank", "itau", "bradesco", "caixa", "banco", "santander", "picpay", "mercado pago",
+                "sicredi", "sicoob", "pagbank", "pagseguro", "neon", "bank", "wallet", "carteira"))
+            return "Bancos e pagamentos";
+        if (has(n, "shopee", "mercado livre", "amazon", "aliexpress", "shein", "temu", "magalu", "americanas",
+                "ifood", "rappi", "olx", "casas bahia"))
+            return "Compras";
+        if (has(n, "chrome", "brave", "firefox", "opera", "edge", "navegador", "browser", "duckduckgo", "samsung internet"))
+            return "Navegadores";
+        if (has(n, "youtube", "netflix", "prime video", "disney", "globoplay", "twitch", "vlc", "player",
+                "video", " tv") || name.equals("max") || name.endsWith(" tv"))
+            return "Vídeo e TV";
+        if (has(n, "spotify", "ymusic", "nyx", "deezer", "music", "musica", "soundcloud", "radio", "podcast"))
+            return "Música e áudio";
+        if (has(n, "galeria", "gallery", "camera", "fotos", "photos", "capcut", "picsart", "lightroom", "snapseed"))
+            return "Fotos e câmera";
+        if (has(n, "maps", "mapas", "waze", "uber", "moovit", "gps") || name.equals("99") || name.startsWith("99 "))
+            return "Mapas e transporte";
+        if (has(n, "claude", "chatgpt", "gemini", "drive", "docs", "sheets", "word", "excel", "notion", "keep",
+                "notas", "notes", "calendar", "agenda", "gmail", "outlook", "email", "flow", "office", "zoom", "meet"))
+            return "Produtividade";
+        if (has(n, "news", "noticias", "kindle", "leitor", "reader", "wattpad", "g1"))
+            return "Notícias e leitura";
+        if (has(n, "calculadora", "calculator", "relogio", "clock", "lanterna", "gravador", "recorder",
+                "arquivos", "files", "scanner", "bussola", "tradutor", "translate", "limpador", "cleaner", "seguranca"))
+            return "Ferramentas";
+        if (Build.VERSION.SDK_INT >= 26) {
+            switch (ai.category) {
+                case android.content.pm.ApplicationInfo.CATEGORY_AUDIO: return "Música e áudio";
+                case android.content.pm.ApplicationInfo.CATEGORY_VIDEO: return "Vídeo e TV";
+                case android.content.pm.ApplicationInfo.CATEGORY_IMAGE: return "Fotos e câmera";
+                case android.content.pm.ApplicationInfo.CATEGORY_SOCIAL: return "Redes sociais";
+                case android.content.pm.ApplicationInfo.CATEGORY_NEWS: return "Notícias e leitura";
+                case android.content.pm.ApplicationInfo.CATEGORY_MAPS: return "Mapas e transporte";
+                case android.content.pm.ApplicationInfo.CATEGORY_PRODUCTIVITY: return "Produtividade";
+                default: break;
+            }
+        }
+        if (system || has(pkg, "com.miui.", "com.xiaomi.", "com.android.", "com.google.android.")) return "Sistema";
+        return "Outros";
+    }
+
+    private static String sizeGroup(long bytes) {
+        long mb = bytes / (1024 * 1024);
+        if (bytes <= 0) return "TAMANHO DESCONHECIDO";
+        if (mb >= 1024) return "ACIMA DE 1 GB";
+        if (mb >= 500) return "500 MB A 1 GB";
+        if (mb >= 100) return "100 A 500 MB";
+        return "ATÉ 100 MB";
+    }
+
+    private static String formatSize(long bytes) {
+        double mb = bytes / (1024.0 * 1024.0);
+        if (mb >= 1024) return String.format(BR, "%.1f GB", mb / 1024);
+        if (mb >= 10) return String.format(BR, "%.0f MB", mb);
+        return String.format(BR, "%.1f MB", mb);
+    }
+
     private LinearLayout dockButton(final int i) {
         LinearLayout b = new LinearLayout(this);
         b.setOrientation(LinearLayout.VERTICAL);
@@ -683,6 +790,40 @@ public class MainActivity extends Activity {
         sp.topMargin = dp(8);
         sp.bottomMargin = dp(4);
         page.addView(searchBox, sp);
+
+        // Botões para organizar a aba Todos
+        sortBar = new android.widget.HorizontalScrollView(this);
+        sortBar.setHorizontalScrollBarEnabled(false);
+        sortBar.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        LinearLayout chips = new LinearLayout(this);
+        chips.setOrientation(LinearLayout.HORIZONTAL);
+        chips.setPadding(0, dp(2), 0, dp(4));
+        sortBar.addView(chips);
+        for (int i = 0; i < SORT_NAMES.length; i++) {
+            final int mode = i;
+            TextView c = text(13, MUTED);
+            c.setText(SORT_NAMES[i]);
+            c.setPadding(dp(14), dp(7), dp(14), dp(7));
+            c.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            c.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    sortMode = mode;
+                    prefs.edit().putInt("ordem", mode).apply();
+                    refreshRows();
+                    list.setSelection(0);
+                    if (mode == SORT_SIZE && hasUsageAccess()) loadApps();
+                    if (mode == SORT_SIZE && !hasUsageAccess()) {
+                        Toast.makeText(MainActivity.this, "Mostrando o tamanho do app. Libere \"Acesso ao uso\" "
+                                + "na aba Bateria para somar os dados também.", Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
+            LinearLayout.LayoutParams cp = lp(WRAP, WRAP);
+            cp.rightMargin = dp(8);
+            chips.addView(c, cp);
+            sortChips[i] = c;
+        }
+        page.addView(sortBar, lp(MATCH, WRAP));
         searchBox.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
@@ -884,22 +1025,59 @@ public class MainActivity extends Activity {
                     }
                 }
                 PackageManager pmi = getPackageManager();
-                Map<String, Long> installTimes = new HashMap<>();
+                Map<String, Object[]> pkgInfo = new HashMap<>();
+                boolean fullSize = hasUsageAccess();
                 for (App a : result) {
                     String pkg = a.component.getPackageName();
-                    Long t = installTimes.get(pkg);
-                    if (t == null) {
-                        t = 0L;
+                    Object[] inf = pkgInfo.get(pkg);
+                    if (inf == null) {
+                        long t = 0, size = 0;
+                        String cat = "Outros";
+                        boolean game = false;
                         try {
                             android.content.pm.PackageInfo pi = pmi.getPackageInfo(pkg, 0);
-                            boolean system = pi.applicationInfo != null && (pi.applicationInfo.flags
+                            android.content.pm.ApplicationInfo ai = pi.applicationInfo;
+                            boolean system = ai != null && (ai.flags
                                     & (android.content.pm.ApplicationInfo.FLAG_SYSTEM
                                     | android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0;
                             if (!system) t = pi.firstInstallTime;
+                            if (ai != null) {
+                                size = apkSize(ai);
+                                game = isGame(ai);
+                                cat = categoryFor(ai, a.search, pkg, system, game);
+                            }
                         } catch (Exception ignored) { }
-                        installTimes.put(pkg, t);
+                        inf = new Object[]{t, size, cat, game};
+                        pkgInfo.put(pkg, inf);
                     }
-                    a.installed = t;
+                    a.installed = (Long) inf[0];
+                    a.size = (Long) inf[1];
+                    a.cat = (String) inf[2];
+                    a.game = (Boolean) inf[3];
+                }
+                if (fullSize && Build.VERSION.SDK_INT >= 26) {
+                    // Tamanho completo (app + dados + cache), igual ao das Configurações
+                    try {
+                        android.app.usage.StorageStatsManager ssm = (android.app.usage.StorageStatsManager)
+                                getSystemService(Context.STORAGE_STATS_SERVICE);
+                        Map<String, Long> done = new HashMap<>();
+                        for (App a : result) {
+                            String k = a.component.getPackageName() + "#" + a.user.hashCode();
+                            Long v = done.get(k);
+                            if (v == null) {
+                                try {
+                                    android.app.usage.StorageStats st = ssm.queryStatsForPackage(
+                                            android.os.storage.StorageManager.UUID_DEFAULT,
+                                            a.component.getPackageName(), a.user);
+                                    v = st.getAppBytes() + st.getDataBytes();
+                                } catch (Exception e) {
+                                    v = a.size;
+                                }
+                                done.put(k, v);
+                            }
+                            a.size = v;
+                        }
+                    } catch (Exception ignored) { }
                 }
                 final Collator collator = Collator.getInstance(Locale.getDefault());
                 collator.setStrength(Collator.PRIMARY);
@@ -979,14 +1157,54 @@ public class MainActivity extends Activity {
             emptyHint.setText("Os apps que você mais usar vão aparecer aqui.");
             showEmpty = rows.isEmpty() && !allApps.isEmpty();
         } else if (tab == TAB_ALL) {
-            String last = null;
-            for (App a : allApps) {
-                String letter = firstLetter(a.search);
-                if (!letter.equals(last)) {
-                    rows.add(letter);
-                    last = letter;
+            if (sortMode == SORT_CAT) {
+                for (String cat : CATEGORIES) {
+                    boolean header = false;
+                    for (App a : allApps) {
+                        if (!a.cat.equals(cat)) continue;
+                        if (!header) {
+                            rows.add(cat.toUpperCase(BR));
+                            header = true;
+                        }
+                        rows.add(a);
+                    }
                 }
-                rows.add(a);
+            } else if (sortMode == SORT_SIZE) {
+                List<App> bySize = new ArrayList<>(allApps);
+                Collections.sort(bySize, new Comparator<App>() {
+                    @Override public int compare(App a, App b) { return Long.compare(b.size, a.size); }
+                });
+                String last = null;
+                for (App a : bySize) {
+                    String group = sizeGroup(a.size);
+                    if (!group.equals(last)) {
+                        rows.add(group);
+                        last = group;
+                    }
+                    rows.add(a);
+                }
+            } else if (sortMode == SORT_GAMES) {
+                for (App a : allApps) if (a.game) rows.add(a);
+                emptyHint.setText("Nenhum jogo encontrado neste celular.");
+                showEmpty = rows.isEmpty() && !allApps.isEmpty();
+            } else {
+                String last = null;
+                for (App a : allApps) {
+                    String letter = firstLetter(a.search);
+                    if (!letter.equals(last)) {
+                        rows.add(letter);
+                        last = letter;
+                    }
+                    rows.add(a);
+                }
+            }
+        }
+        if (sortBar != null) {
+            sortBar.setVisibility(tab == TAB_ALL && q.isEmpty() ? View.VISIBLE : View.GONE);
+            for (int i = 0; i < sortChips.length; i++) {
+                boolean on = i == sortMode;
+                sortChips[i].setTextColor(on ? BG : MUTED);
+                sortChips[i].setBackground(on ? pill(ACCENT, 0) : pill(SURFACE, LINE));
             }
         }
         emptyHint.setVisibility(showEmpty ? View.VISIBLE : View.GONE);
@@ -1789,7 +2007,15 @@ public class MainActivity extends Activity {
             } else {
                 if (tv == null) tv = appRowView();
                 App app = (App) o;
-                if (app.isNew() && tab != TAB_NEW) {
+                if (tab == TAB_ALL && sortMode == SORT_SIZE && app.size > 0
+                        && searchBox.length() == 0) {
+                    String sz = "  " + formatSize(app.size);
+                    android.text.SpannableString sp = new android.text.SpannableString(app.display() + sz);
+                    int start = sp.length() - sz.length();
+                    sp.setSpan(new android.text.style.ForegroundColorSpan(MUTED), start, sp.length(), 0);
+                    sp.setSpan(new android.text.style.RelativeSizeSpan(0.7f), start, sp.length(), 0);
+                    tv.setText(sp);
+                } else if (app.isNew() && tab != TAB_NEW) {
                     android.text.SpannableString sp = new android.text.SpannableString(app.display() + "  novo");
                     int start = sp.length() - 4;
                     sp.setSpan(new android.text.style.ForegroundColorSpan(ACCENT), start, sp.length(), 0);
