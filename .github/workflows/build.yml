@@ -13,8 +13,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: LeveLauncher
-
+        working-directory: LeveLauncher-corrigido
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
