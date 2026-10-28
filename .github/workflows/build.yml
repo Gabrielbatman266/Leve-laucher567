@@ -1,0 +1,43 @@
+name: Gerar APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: LeveLauncher
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Compilar APK
+        run: gradle assembleRelease --no-daemon
+
+      - name: Publicar APK em uma Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk LeveLauncher.apk
+          gh release create "v${{ github.run_number }}" LeveLauncher.apk \
+            --title "Leve Launcher v${{ github.run_number }}" \
+            --notes "Baixe o LeveLauncher.apk abaixo e instale no celular."
