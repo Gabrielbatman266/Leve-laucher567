@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Para ver quanto tempo cada app ficou ativo hoje (você libera nas configurações) -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- Para fechar processos em segundo plano de um app -->
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
 
     <!-- Necessário no Android 11+ para enxergar os apps instalados -->
     <queries>
@@ -16,6 +24,7 @@
         </intent>
         <package android:name="com.miui.cleanmaster" />
         <package android:name="com.miui.securitycenter" />
+        <package android:name="com.miui.powerkeeper" />
     </queries>
 
     <application

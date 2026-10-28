@@ -3,6 +3,9 @@ package com.leve.launcher;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
+import android.app.AppOpsManager;
+import android.app.usage.UsageStats;
+import android.app.usage.UsageStatsManager;
 import android.app.role.RoleManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -52,6 +55,7 @@ import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ScrollView;
@@ -64,6 +68,7 @@ import java.io.FileReader;
 import java.text.Collator;
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -73,13 +78,14 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * Leve Launcher v5 — tela inicial minimalista com tema espacial.
+ * Leve Launcher v7 — tela inicial minimalista com tema espacial.
  *
  * Abas (toque no nome ou deslize para os lados):
  *   Essenciais  – seus atalhos organizados + controle de música
  *   Frequentes  – os apps que você mais abre
  *   Todos       – todos os apps (inclusive clones), separados por letra
- *   Sistema     – RAM, CPU, bateria, temperatura, armazenamento
+ *   Bateria     – nível, consumo, tempo restante e quais apps mais gastaram hoje
+ *   Sistema     – RAM, CPU, temperatura, armazenamento
  *
  * Economia: fundo preto puro, sem ícones, sem widgets, sem bibliotecas.
  * As medições e a animação do fundo só rodam com a tela inicial visível,
@@ -100,8 +106,10 @@ public class MainActivity extends Activity {
     private static final int REQ_HOME = 7;
     private static final long STATS_EVERY_MS = 3000;
 
-    private static final int TAB_ESS = 0, TAB_FREQ = 1, TAB_ALL = 2, TAB_SYS = 3;
-    private static final String[] TAB_NAMES = {"Essenciais", "Frequentes", "Todos", "Sistema"};
+    private static final int TAB_ESS = 0, TAB_FREQ = 1, TAB_ALL = 2, TAB_BAT = 3, TAB_SYS = 4;
+    private static final String[] TAB_NAMES = {"Essenciais", "Frequentes", "Todos", "Bateria", "Sistema"};
+    private static final int TABS = 5;
+    private static final long USAGE_EVERY_MS = 30000;
 
     private static final Locale BR = new Locale("pt", "BR");
     private static final String FLOW_URL = "https://labs.google/fx/tools/flow";
@@ -139,6 +147,7 @@ public class MainActivity extends Activity {
         int cpuPct = -1, batt = -1, voltage = -1, currentMa = Integer.MIN_VALUE;
         float cpuTemp = Float.NaN, battTemp = Float.NaN;
         boolean charging, full;
+        long chargeCounterUah = -1, chargeTimeMs = -1;
         String health = "—";
     }
 
@@ -164,16 +173,23 @@ public class MainActivity extends Activity {
     // ---------- Views ----------
     private StarsView stars;
     private TextView defaultBanner, statsLine, emptyHint, essHint, nowPlaying, animToggle;
-    private final TextView[] tabViews = new TextView[4];
-    private View pageEss, pageApps, pageSys;
+    private final TextView[] tabViews = new TextView[TABS];
+    private HorizontalScrollView tabScroll;
+    private View pageEss, pageApps, pageBat, pageSys;
     private EditText searchBox;
     private ListView list, essList;
     private RowAdapter adapter;
     private EssAdapter essAdapter;
     private GestureDetector swipe;
     // Sistema
-    private TextView sRam, sStor, sCpu, sCpuTemp, sBatt, sBattStatus, sBattTemp, sCurrent, sVolt, sHealth, sUptime;
-    private BarView barRam, barCpu, barBatt;
+    private TextView sRam, sStor, sCpu, sCpuTemp, sUptime;
+    private BarView barRam, barCpu;
+    // Bateria
+    private TextView bLevel, bStatus, bRemain, bCurrent, bVolt, bHealth, bTemp, usagePerm, usageNote;
+    private BarView barBatt;
+    private LinearLayout usageBox;
+    private double avgMa = -1;
+    private long lastUsageAt = 0;
 
     // ================================================================
     // Ciclo de vida
@@ -228,6 +244,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         resumed = true;
+        lastUsageAt = 0;
         defaultBanner.setVisibility(isDefaultHome() ? View.GONE : View.VISIBLE);
         ui.removeCallbacks(tick);
         ui.post(tick);
@@ -369,28 +386,32 @@ public class MainActivity extends Activity {
             @Override public void onClick(View v) { tryStart(new Intent(Settings.ACTION_SETTINGS)); }
         }), quickParams(false));
         quick.addView(quickButton("ϟ  Bateria", new View.OnClickListener() {
-            @Override public void onClick(View v) { openBattery(); }
+            @Override public void onClick(View v) { selectTab(TAB_BAT); }
         }), quickParams(true));
 
         // --- Abas ---
+        tabScroll = new HorizontalScrollView(this);
+        tabScroll.setHorizontalScrollBarEnabled(false);
+        tabScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         LinearLayout tabs = new LinearLayout(this);
         tabs.setOrientation(LinearLayout.HORIZONTAL);
+        tabScroll.addView(tabs);
         LinearLayout.LayoutParams tp = lp(MATCH, WRAP);
         tp.topMargin = dp(20);
-        root.addView(tabs, tp);
-        for (int i = 0; i < 4; i++) {
+        root.addView(tabScroll, tp);
+        for (int i = 0; i < TABS; i++) {
             final int which = i;
             TextView t = text(14, FAINT);
             t.setText(TAB_NAMES[i]);
             t.setGravity(Gravity.CENTER);
             t.setSingleLine(true);
-            t.setPadding(0, dp(8), 0, dp(8));
+            t.setPadding(0, dp(8), dp(20), dp(8));
             t.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             t.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) { selectTab(which); }
             });
             tabViews[i] = t;
-            tabs.addView(t, new LinearLayout.LayoutParams(0, WRAP, 1f));
+            tabs.addView(t, lp(WRAP, WRAP));
         }
 
         // --- Páginas ---
@@ -398,9 +419,11 @@ public class MainActivity extends Activity {
         root.addView(pages, new LinearLayout.LayoutParams(MATCH, 0, 1f));
         pageEss = buildEssPage();
         pageApps = buildAppsPage();
+        pageBat = buildBatPage();
         pageSys = buildSysPage();
         pages.addView(pageEss, new FrameLayout.LayoutParams(MATCH, MATCH));
         pages.addView(pageApps, new FrameLayout.LayoutParams(MATCH, MATCH));
+        pages.addView(pageBat, new FrameLayout.LayoutParams(MATCH, MATCH));
         pages.addView(pageSys, new FrameLayout.LayoutParams(MATCH, MATCH));
 
         showTab(false);
@@ -603,15 +626,6 @@ public class MainActivity extends Activity {
         barCpu = bar(c);
         sCpuTemp = row(c, "Temperatura");
 
-        section(c, "BATERIA");
-        sBatt = row(c, "Nível");
-        barBatt = bar(c);
-        sBattStatus = row(c, "Status");
-        sBattTemp = row(c, "Temperatura");
-        sCurrent = row(c, "Corrente agora");
-        sVolt = row(c, "Voltagem");
-        sHealth = row(c, "Saúde");
-
         section(c, "APARELHO");
         sUptime = row(c, "Ligado há");
         TextView model = row(c, "Modelo");
@@ -670,25 +684,34 @@ public class MainActivity extends Activity {
     // ---------- Abas ----------
 
     private void selectTab(int t) {
-        if (t < 0 || t > 3 || t == tab) return;
+        if (t < 0 || t >= TABS || t == tab) return;
         tab = t;
         hideKeyboard();
         if (searchBox.length() > 0) searchBox.setText("");
         showTab(true);
         refreshRows();
-        if (t == TAB_SYS) {
+        if (t == TAB_SYS || t == TAB_BAT) {
+            if (t == TAB_BAT) lastUsageAt = 0;
             ui.removeCallbacks(tick);
             ui.post(tick);
         }
     }
 
     private void showTab(boolean fade) {
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < TABS; i++) {
             tabViews[i].setTextColor(i == tab ? TEXT : FAINT);
         }
-        View show = tab == TAB_ESS ? pageEss : tab == TAB_SYS ? pageSys : pageApps;
+        final TextView current = tabViews[tab];
+        tabScroll.post(new Runnable() {
+            @Override public void run() {
+                int x = current.getLeft() - (tabScroll.getWidth() - current.getWidth()) / 2;
+                tabScroll.smoothScrollTo(Math.max(0, x), 0);
+            }
+        });
+        View show = tab == TAB_ESS ? pageEss : tab == TAB_SYS ? pageSys : tab == TAB_BAT ? pageBat : pageApps;
         pageEss.setVisibility(show == pageEss ? View.VISIBLE : View.GONE);
         pageApps.setVisibility(show == pageApps ? View.VISIBLE : View.GONE);
+        pageBat.setVisibility(show == pageBat ? View.VISIBLE : View.GONE);
         pageSys.setVisibility(show == pageSys ? View.VISIBLE : View.GONE);
         if (fade) {
             show.setAlpha(0f);
@@ -1000,6 +1023,10 @@ public class MainActivity extends Activity {
             if (!resumed) return;
             statsHandler.post(collect);
             updateNowPlaying();
+            if (tab == TAB_BAT && SystemClock.uptimeMillis() - lastUsageAt > USAGE_EVERY_MS) {
+                lastUsageAt = SystemClock.uptimeMillis();
+                loadUsageRanking();
+            }
             ui.postDelayed(this, STATS_EVERY_MS);
         }
     };
@@ -1084,6 +1111,9 @@ public class MainActivity extends Activity {
                 int abs = Math.abs(now);
                 s.currentMa = abs > 20000 ? abs / 1000 : abs; // alguns aparelhos já mandam em mA
             }
+            int cc = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER);
+            if (cc > 0 && cc != Integer.MAX_VALUE) s.chargeCounterUah = cc > 100000 ? cc : cc * 1000L;
+            if (Build.VERSION.SDK_INT >= 28) s.chargeTimeMs = bm.computeChargeTimeRemaining();
         } catch (Exception ignored) { }
         return s;
     }
@@ -1147,6 +1177,10 @@ public class MainActivity extends Activity {
         if (!Float.isNaN(s.battTemp)) line.append("  ·  ").append(Math.round(s.battTemp)).append("°C");
         statsLine.setText(line);
 
+        if (s.currentMa != Integer.MIN_VALUE && s.currentMa > 0) {
+            avgMa = avgMa < 0 ? s.currentMa : avgMa * 0.7 + s.currentMa * 0.3;
+        }
+        if (tab == TAB_BAT) showBattery(s);
         if (tab != TAB_SYS) return;
         sRam.setText(s.ramTotal > 0
                 ? String.format(BR, "%.1f de %.1f GB (%d%%)", gb(s.ramUsed), gb(s.ramTotal), ramPct) : "—");
@@ -1156,18 +1190,270 @@ public class MainActivity extends Activity {
         sCpu.setText(s.cpuPct >= 0 ? s.cpuPct + "%" : "não disponível");
         barCpu.setValue(s.cpuPct);
         sCpuTemp.setText(!Float.isNaN(s.cpuTemp) ? Math.round(s.cpuTemp) + " °C" : "bloqueada pela Xiaomi");
-        sBatt.setText(s.batt >= 0 ? s.batt + "%" : "—");
-        barBatt.setValue(s.batt);
-        sBattStatus.setText(s.full ? "Cheia" : s.charging ? "Carregando" : "Descarregando");
-        sBattTemp.setText(!Float.isNaN(s.battTemp) ? String.format(BR, "%.1f °C", s.battTemp) : "—");
-        sBattTemp.setTextColor(!Float.isNaN(s.battTemp) && s.battTemp >= 40 ? 0xFFFF8A80 : TEXT);
-        sCurrent.setText(s.currentMa != Integer.MIN_VALUE
-                ? s.currentMa + " mA " + (s.charging ? "entrando" : "saindo") : "—");
-        sVolt.setText(s.voltage > 0 ? String.format(BR, "%.2f V", s.voltage / 1000f) : "—");
-        sHealth.setText(s.health);
         long min = SystemClock.elapsedRealtime() / 60000;
         long days = min / 1440, hours = (min % 1440) / 60, mins = min % 60;
         sUptime.setText(days > 0 ? days + " d " + hours + " h" : hours + " h " + mins + " min");
+    }
+
+
+    // ================================================================
+    // Aba Bateria
+    // ================================================================
+
+    private View buildBatPage() {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        LinearLayout c = new LinearLayout(this);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setPadding(0, dp(8), 0, dp(28));
+        scroll.addView(c);
+
+        bLevel = text(44, TEXT);
+        bLevel.setText("—");
+        bLevel.setTypeface(Typeface.create("sans-serif-thin", Typeface.NORMAL));
+        bLevel.setIncludeFontPadding(false);
+        c.addView(bLevel);
+        bStatus = text(14, MUTED);
+        bStatus.setPadding(0, dp(2), 0, dp(10));
+        c.addView(bStatus);
+        barBatt = bar(c);
+
+        bRemain = row(c, "Tempo restante");
+        bCurrent = row(c, "Consumo agora");
+        bTemp = row(c, "Temperatura");
+        bVolt = row(c, "Voltagem");
+        bHealth = row(c, "Saúde");
+
+        section(c, "QUEM MAIS GASTOU HOJE");
+        usageNote = text(12, FAINT);
+        usageNote.setText("Tempo que cada app ficou ativo desde 0h, na tela e em segundo plano. "
+                + "Quanto mais tempo, mais bateria. Toque num app para frear ele.");
+        usageNote.setLineSpacing(dp(2), 1f);
+        usageNote.setPadding(0, 0, 0, dp(8));
+        c.addView(usageNote);
+
+        usagePerm = text(14, ACCENT);
+        usagePerm.setText("✦  Toque para liberar o \"Acesso ao uso\" para o Leve Launcher");
+        usagePerm.setBackground(pill(0xFF0D1024, 0xFF2B3566));
+        usagePerm.setPadding(dp(16), dp(10), dp(16), dp(10));
+        usagePerm.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Toast.makeText(MainActivity.this, "Ative o Leve Launcher na lista", Toast.LENGTH_LONG).show();
+                if (!startQuiet(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS,
+                        Uri.fromParts("package", getPackageName(), null)))) {
+                    tryStart(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+                }
+            }
+        });
+        usagePerm.setVisibility(View.GONE);
+        c.addView(usagePerm, lp(MATCH, WRAP));
+
+        usageBox = new LinearLayout(this);
+        usageBox.setOrientation(LinearLayout.VERTICAL);
+        c.addView(usageBox, lp(MATCH, WRAP));
+
+        section(c, "ATALHOS");
+        TextView sysUsage = row(c, "Uso de bateria do sistema");
+        sysUsage.setText("Abrir ›");
+        ((View) sysUsage.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { openBattery(); }
+        });
+        TextView saver = row(c, "Economia de bateria");
+        saver.setText("Abrir ›");
+        ((View) saver.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                if (!startQuiet(new Intent("android.settings.BATTERY_SAVER_SETTINGS"))) openBattery();
+            }
+        });
+        return scroll;
+    }
+
+    private void showBattery(Stats s) {
+        bLevel.setText(s.batt >= 0 ? s.batt + "%" : "—");
+        barBatt.setValue(s.batt >= 0 ? s.batt : -1);
+        String st = s.full ? "Cheia" : s.charging ? "Carregando" : "Descarregando";
+        bStatus.setText(st);
+
+        String remain = "—";
+        if (s.charging && s.chargeTimeMs > 0) {
+            remain = "cheia em " + formatDur(s.chargeTimeMs);
+        } else if (!s.charging && s.chargeCounterUah > 0 && avgMa > 20) {
+            double hours = (s.chargeCounterUah / 1000.0) / avgMa;
+            if (hours > 0 && hours < 96) remain = "~" + formatDur((long) (hours * 3600000)) + " neste ritmo";
+        }
+        bRemain.setText(remain);
+        bCurrent.setText(s.currentMa != Integer.MIN_VALUE
+                ? s.currentMa + " mA " + (s.charging ? "entrando" : "saindo") : "—");
+        bTemp.setText(!Float.isNaN(s.battTemp) ? String.format(BR, "%.1f °C", s.battTemp) : "—");
+        bTemp.setTextColor(!Float.isNaN(s.battTemp) && s.battTemp >= 40 ? 0xFFFF8A80 : TEXT);
+        bVolt.setText(s.voltage > 0 ? String.format(BR, "%.2f V", s.voltage / 1000f) : "—");
+        bHealth.setText(s.health);
+    }
+
+    private static String formatDur(long ms) {
+        long min = ms / 60000;
+        if (min < 1) return "menos de 1 min";
+        long h = min / 60, m = min % 60;
+        if (h == 0) return m + " min";
+        return m == 0 ? h + " h" : h + " h " + m + " min";
+    }
+
+    private boolean hasUsageAccess() {
+        try {
+            AppOpsManager aom = (AppOpsManager) getSystemService(APP_OPS_SERVICE);
+            int mode = Build.VERSION.SDK_INT >= 29
+                    ? aom.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), getPackageName())
+                    : aom.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), getPackageName());
+            if (mode == AppOpsManager.MODE_DEFAULT) {
+                return checkCallingOrSelfPermission("android.permission.PACKAGE_USAGE_STATS")
+                        == PackageManager.PERMISSION_GRANTED;
+            }
+            return mode == AppOpsManager.MODE_ALLOWED;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static final class Drain {
+        final String pkg, label;
+        final long fg, bg;
+        Drain(String pkg, String label, long fg, long bg) { this.pkg = pkg; this.label = label; this.fg = fg; this.bg = bg; }
+        long total() { return fg + bg; }
+    }
+
+    /** Monta a lista de quem mais ficou ativo hoje (roda fora da tela principal). */
+    private void loadUsageRanking() {
+        if (!hasUsageAccess()) {
+            usagePerm.setVisibility(View.VISIBLE);
+            usageBox.removeAllViews();
+            return;
+        }
+        usagePerm.setVisibility(View.GONE);
+        final Map<String, String> labels = new HashMap<>();
+        for (App a : allApps) if (!a.clone) labels.put(a.component.getPackageName(), a.label);
+        statsHandler.post(new Runnable() {
+            @Override public void run() {
+                final List<Drain> out = new ArrayList<>();
+                try {
+                    UsageStatsManager usm = (UsageStatsManager) getSystemService(USAGE_STATS_SERVICE);
+                    Calendar cal = Calendar.getInstance();
+                    cal.set(Calendar.HOUR_OF_DAY, 0);
+                    cal.set(Calendar.MINUTE, 0);
+                    cal.set(Calendar.SECOND, 0);
+                    cal.set(Calendar.MILLISECOND, 0);
+                    Map<String, UsageStats> m = usm.queryAndAggregateUsageStats(
+                            cal.getTimeInMillis(), System.currentTimeMillis());
+                    String self = getPackageName();
+                    for (Map.Entry<String, UsageStats> e : m.entrySet()) {
+                        String pkg = e.getKey();
+                        if (pkg.equals(self)) continue;
+                        UsageStats us = e.getValue();
+                        long fg = us.getTotalTimeInForeground();
+                        long bg = Build.VERSION.SDK_INT >= 29 ? us.getTotalTimeForegroundServiceUsed() : 0;
+                        if (fg + bg < 60000) continue;
+                        String label = labels.get(pkg);
+                        if (label == null) continue; // só apps que aparecem na sua lista
+                        out.add(new Drain(pkg, label, fg, bg));
+                    }
+                    Collections.sort(out, new Comparator<Drain>() {
+                        @Override public int compare(Drain a, Drain b) { return Long.compare(b.total(), a.total()); }
+                    });
+                } catch (Exception ignored) { }
+                ui.post(new Runnable() {
+                    @Override public void run() { showUsageRanking(out); }
+                });
+            }
+        });
+    }
+
+    private void showUsageRanking(List<Drain> list) {
+        usageBox.removeAllViews();
+        if (list.isEmpty()) {
+            TextView t = text(14, MUTED);
+            t.setText("Nada registrado hoje ainda.");
+            t.setPadding(0, dp(6), 0, dp(6));
+            usageBox.addView(t);
+            return;
+        }
+        long max = list.get(0).total();
+        int n = Math.min(10, list.size());
+        for (int i = 0; i < n; i++) {
+            final Drain d = list.get(i);
+            LinearLayout item = new LinearLayout(this);
+            item.setOrientation(LinearLayout.VERTICAL);
+            item.setPadding(0, dp(8), 0, dp(8));
+
+            LinearLayout top = new LinearLayout(this);
+            top.setOrientation(LinearLayout.HORIZONTAL);
+            TextView name = text(16, TEXT);
+            name.setText(d.label);
+            name.setSingleLine(true);
+            top.addView(name, new LinearLayout.LayoutParams(0, WRAP, 1f));
+            TextView time = text(15, i < 3 ? ACCENT : TEXT);
+            time.setText(formatDur(d.total()));
+            top.addView(time, lp(WRAP, WRAP));
+            item.addView(top);
+
+            TextView detail = text(12, MUTED);
+            detail.setText(d.bg > 0
+                    ? "tela " + formatDur(d.fg) + "  ·  2º plano " + formatDur(d.bg)
+                    : "tela " + formatDur(d.fg));
+            detail.setPadding(0, dp(2), 0, dp(5));
+            item.addView(detail);
+
+            BarView b = new BarView(this);
+            b.setValue((int) Math.max(1, d.total() * 100 / Math.max(1, max)));
+            item.addView(b, lp(MATCH, dp(3)));
+
+            item.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) { showDrainMenu(d); }
+            });
+            usageBox.addView(item, lp(MATCH, WRAP));
+        }
+    }
+
+    private void showDrainMenu(final Drain d) {
+        final String[] opts = {
+                "Fechar agora (processos em segundo plano)",
+                "Restringir bateria deste app",
+                "Forçar parada (informações do app)"
+        };
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(d.label)
+                .setItems(opts, new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dialog, int which) {
+                        if (which == 0) {
+                            try {
+                                ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+                                am.killBackgroundProcesses(d.pkg);
+                                Toast.makeText(MainActivity.this, d.label + " fechado em segundo plano",
+                                        Toast.LENGTH_SHORT).show();
+                            } catch (Exception e) {
+                                Toast.makeText(MainActivity.this, "Não deu para fechar", Toast.LENGTH_SHORT).show();
+                            }
+                        } else if (which == 1) {
+                            restrictBattery(d);
+                        } else {
+                            tryStart(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.fromParts("package", d.pkg, null)));
+                        }
+                    }
+                }).show();
+    }
+
+    /** Abre a tela da Xiaomi de "Economia de bateria" do app (Restringir em segundo plano). */
+    private void restrictBattery(Drain d) {
+        Intent miui = new Intent().setComponent(new ComponentName(
+                "com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsConfigActivity"));
+        miui.putExtra("package_name", d.pkg);
+        miui.putExtra("package_label", d.label);
+        if (startQuiet(miui)) {
+            Toast.makeText(this, "Escolha \"Restringir apps em segundo plano\"", Toast.LENGTH_LONG).show();
+            return;
+        }
+        Toast.makeText(this, "Toque em Bateria / Economia de bateria e restrinja", Toast.LENGTH_LONG).show();
+        tryStart(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", d.pkg, null)));
     }
 
     private static double gb(long bytes) {

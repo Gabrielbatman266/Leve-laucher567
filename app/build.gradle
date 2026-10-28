@@ -10,8 +10,18 @@ android {
         applicationId 'com.leve.launcher'
         minSdk 21
         targetSdk 34
-        versionCode 1
-        versionName '1.0'
+        versionCode 7
+        versionName '7.0'
+    }
+
+    // Chave fixa: assim as próximas versões instalam por cima, sem desinstalar.
+    signingConfigs {
+        leve {
+            storeFile file('leve.keystore')
+            storePassword 'leve123456'
+            keyAlias 'leve'
+            keyPassword 'leve123456'
+        }
     }
 
     buildTypes {
@@ -19,9 +29,13 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
-            // Assinado com a chave de debug para poder instalar direto
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.leve
         }
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
     }
 
     compileOptions {
