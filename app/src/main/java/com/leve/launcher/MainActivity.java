@@ -812,10 +812,6 @@ public class MainActivity extends Activity {
                     refreshRows();
                     list.setSelection(0);
                     if (mode == SORT_SIZE && hasUsageAccess()) loadApps();
-                    if (mode == SORT_SIZE && !hasUsageAccess()) {
-                        Toast.makeText(MainActivity.this, "Mostrando o tamanho do app. Libere \"Acesso ao uso\" "
-                                + "na aba Bateria para somar os dados também.", Toast.LENGTH_LONG).show();
-                    }
                 }
             });
             LinearLayout.LayoutParams cp = lp(WRAP, WRAP);
