@@ -1,0 +1,41 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.leve.launcher'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.leve.launcher'
+        minSdk 21
+        targetSdk 34
+        versionCode 3
+        versionName '3.0'
+    }
+
+    // Chave fixa: assim as próximas versões instalam por cima, sem desinstalar.
+    signingConfigs {
+        leve {
+            storeFile file('leve.keystore')
+            storePassword 'leve123456'
+            keyAlias 'leve'
+            keyPassword 'leve123456'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+            signingConfig signingConfigs.leve
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+// Sem nenhuma biblioteca extra: o app fica com poucos KB e usa pouca RAM.
