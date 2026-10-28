@@ -17,6 +17,14 @@ import android.content.pm.LauncherActivityInfo;
 import android.content.pm.LauncherApps;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.graphics.Canvas;
+import android.graphics.ColorFilter;
+import android.graphics.LinearGradient;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.graphics.RadialGradient;
+import android.graphics.Rect;
+import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -87,15 +95,16 @@ import java.util.Map;
  */
 public class MainActivity extends Activity {
 
-    // ---------- Cores (alto contraste) ----------
-    static final int BG = 0xFF000000;
-    static final int TILE = 0xFF1C1C1F;
-    static final int TILE_LINE = 0xFF2C2C31;
-    static final int TEXT = 0xFFFFFFFF;
-    static final int MUTED = 0xFFB8B8C0;
-    static final int ACCENT = 0xFFFFC94D;
-    static final int GOOD = 0xFF7CE38B;
-    static final int WARN = 0xFFFF8A80;
+    // ---------- Cores claras, bem nítidas ----------
+    static final int BG = 0xFFF3F6FC;
+    static final int TILE = 0xFFFFFFFF;
+    static final int TILE_LINE = 0xFFE1E7F2;
+    static final int TEXT = 0xFF111827;
+    static final int MUTED = 0xFF4B5567;
+    static final int ACCENT = 0xFF1E5BD8;
+    static final int ON_ACCENT = 0xFFFFFFFF;
+    static final int GOOD = 0xFF13803B;
+    static final int WARN = 0xFFC62828;
 
     private static final int REQ_HOME = 7, REQ_LOCATION = 8;
     private static final long WEATHER_EVERY_MS = 30 * 60 * 1000L;
@@ -252,6 +261,12 @@ public class MainActivity extends Activity {
         return g;
     }
 
+    /** Cartão branco com borda fina e sombra suave. */
+    private void card(View v, float radius) {
+        v.setBackground(box(TILE, TILE_LINE, radius));
+        v.setElevation(dp(3));
+    }
+
     /** Texto com tamanho já ajustado ao "Tamanho da letra" escolhido. */
     private TextView text(float sp, int color) {
         TextView t = new TextView(this);
@@ -269,7 +284,12 @@ public class MainActivity extends Activity {
 
     private View buildUi() {
         FrameLayout frame = new FrameLayout(this);
-        frame.setBackgroundColor(BG);
+        frame.setBackground(new SkyDrawable());
+        getWindow().setStatusBarColor(0xFFDDE8FF);
+        getWindow().setNavigationBarColor(0xFFFFFFFF);
+        int flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+        if (Build.VERSION.SDK_INT >= 26) flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        getWindow().getDecorView().setSystemUiVisibility(flags);
         homePage = buildHome();
         allPage = buildAllApps();
         frame.addView(homePage, new FrameLayout.LayoutParams(MATCH, MATCH));
@@ -285,13 +305,15 @@ public class MainActivity extends Activity {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
         c.setPadding(dp(18), dp(20), dp(18), dp(28));
+        c.setClipChildren(false);
         scroll.addView(c);
 
-        defaultBanner = text(17, BG);
+        defaultBanner = text(17, ON_ACCENT);
         defaultBanner.setText("Toque aqui para usar este launcher como tela inicial");
         defaultBanner.setTypeface(Typeface.DEFAULT_BOLD);
         defaultBanner.setGravity(Gravity.CENTER);
         defaultBanner.setBackground(box(ACCENT, 0, 16));
+        defaultBanner.setElevation(dp(4));
         defaultBanner.setPadding(dp(16), dp(14), dp(16), dp(14));
         defaultBanner.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { requestDefaultHome(); }
@@ -306,7 +328,7 @@ public class MainActivity extends Activity {
         clock.setFormat12Hour("HH:mm");
         clock.setTextColor(TEXT);
         clock.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 92 * Math.min(scale, 1.15f));
-        clock.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
+        clock.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
         clock.setIncludeFontPadding(false);
         clock.setGravity(Gravity.CENTER_HORIZONTAL);
         clock.setOnClickListener(new View.OnClickListener() {
@@ -317,7 +339,8 @@ public class MainActivity extends Activity {
         TextClock date = new TextClock(this);
         date.setFormat24Hour("EEEE, d 'de' MMMM");
         date.setFormat12Hour("EEEE, d 'de' MMMM");
-        date.setTextColor(TEXT);
+        date.setTextColor(ACCENT);
+        date.setTypeface(Typeface.DEFAULT_BOLD);
         date.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22 * scale);
         date.setGravity(Gravity.CENTER_HORIZONTAL);
         c.addView(date, lp(MATCH, WRAP));
@@ -325,6 +348,7 @@ public class MainActivity extends Activity {
         // ----- Tempo e bateria -----
         LinearLayout info = new LinearLayout(this);
         info.setOrientation(LinearLayout.HORIZONTAL);
+        info.setClipChildren(false);
         LinearLayout.LayoutParams ip = lp(MATCH, WRAP);
         ip.topMargin = dp(16);
         c.addView(info, ip);
@@ -332,7 +356,7 @@ public class MainActivity extends Activity {
         weatherLine = text(19, TEXT);
         weatherLine.setText("☁  Ver o tempo");
         weatherLine.setGravity(Gravity.CENTER);
-        weatherLine.setBackground(box(TILE, TILE_LINE, 18));
+        card(weatherLine, 18);
         weatherLine.setPadding(dp(10), dp(14), dp(10), dp(14));
         weatherLine.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { onWeatherTap(); }
@@ -344,7 +368,7 @@ public class MainActivity extends Activity {
         batteryLine = text(19, TEXT);
         batteryLine.setText("🔋  —");
         batteryLine.setGravity(Gravity.CENTER);
-        batteryLine.setBackground(box(TILE, TILE_LINE, 18));
+        card(batteryLine, 18);
         batteryLine.setPadding(dp(10), dp(14), dp(10), dp(14));
         batteryLine.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -378,13 +402,15 @@ public class MainActivity extends Activity {
         c.addView(sectionTitle("Meus aplicativos"));
         grid = new LinearLayout(this);
         grid.setOrientation(LinearLayout.VERTICAL);
+        grid.setClipChildren(false);
         c.addView(grid, lp(MATCH, WRAP));
 
-        TextView all = text(20, BG);
+        TextView all = text(20, ON_ACCENT);
         all.setText("Todos os aplicativos  ›");
         all.setTypeface(Typeface.DEFAULT_BOLD);
         all.setGravity(Gravity.CENTER);
         all.setBackground(box(ACCENT, 0, 18));
+        all.setElevation(dp(4));
         all.setPadding(dp(16), dp(18), dp(16), dp(18));
         all.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { showAllApps(); }
@@ -408,7 +434,8 @@ public class MainActivity extends Activity {
         r3.addView(home, half(false));
 
         TextView tip = text(14, MUTED);
-        tip.setText("Dica: segure o dedo num aplicativo para tirar ou mudar de lugar.");
+        tip.setText("Dica: toque em \"+ Adicionar aplicativo\" para escolher seus apps. "
+                + "Segure o dedo num app para tirar ou mudar de lugar.");
         tip.setGravity(Gravity.CENTER);
         tip.setPadding(0, dp(16), 0, 0);
         c.addView(tip, lp(MATCH, WRAP));
@@ -427,8 +454,9 @@ public class MainActivity extends Activity {
     private LinearLayout row(LinearLayout parent) {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setClipChildren(false);
         LinearLayout.LayoutParams p = lp(MATCH, WRAP);
-        p.bottomMargin = dp(10);
+        p.bottomMargin = dp(12);
         parent.addView(r, p);
         return r;
     }
@@ -443,7 +471,7 @@ public class MainActivity extends Activity {
         LinearLayout t = new LinearLayout(this);
         t.setOrientation(LinearLayout.VERTICAL);
         t.setGravity(Gravity.CENTER);
-        t.setBackground(box(TILE, TILE_LINE, 20));
+        card(t, 20);
         t.setPadding(dp(8), dp(16), dp(8), dp(16));
         TextView e = text(30, TEXT);
         e.setText(emoji);
@@ -463,7 +491,7 @@ public class MainActivity extends Activity {
         TextView b = text(16, TEXT);
         b.setText(s);
         b.setGravity(Gravity.CENTER);
-        b.setBackground(box(TILE, TILE_LINE, 16));
+        card(b, 16);
         b.setPadding(dp(8), dp(14), dp(8), dp(14));
         return b;
     }
@@ -477,13 +505,6 @@ public class MainActivity extends Activity {
             App a = byKey.get(k);
             if (a != null) apps.add(a);
         }
-        if (apps.isEmpty()) {
-            TextView t = text(17, MUTED);
-            t.setText("Toque em \"Todos os aplicativos\", segure o dedo num app e escolha \"Colocar na tela inicial\".");
-            t.setPadding(dp(4), 0, dp(4), 0);
-            grid.addView(t);
-            return;
-        }
         LinearLayout r = null;
         for (int i = 0; i < apps.size(); i++) {
             if (i % 2 == 0) r = row(grid);
@@ -492,7 +513,7 @@ public class MainActivity extends Activity {
             LinearLayout tile = new LinearLayout(this);
             tile.setOrientation(LinearLayout.VERTICAL);
             tile.setGravity(Gravity.CENTER);
-            tile.setBackground(box(TILE, TILE_LINE, 20));
+            card(tile, 20);
             tile.setPadding(dp(8), dp(14), dp(8), dp(14));
             ImageView icon = new ImageView(this);
             tile.addView(icon, new LinearLayout.LayoutParams(dp(56 * Math.min(scale, 1.15f)), dp(56 * Math.min(scale, 1.15f))));
@@ -512,10 +533,72 @@ public class MainActivity extends Activity {
             });
             r.addView(tile, half(i % 2 == 0));
         }
-        if (apps.size() % 2 == 1) {
-            View spacer = new View(this);
-            r.addView(spacer, half(false));
+        // Último quadrado: adicionar aplicativos
+        if (apps.size() % 2 == 0) r = row(grid);
+        LinearLayout add = new LinearLayout(this);
+        add.setOrientation(LinearLayout.VERTICAL);
+        add.setGravity(Gravity.CENTER);
+        GradientDrawable dash = box(0xFFEAF1FF, 0, 20);
+        dash.setStroke(dp(2), ACCENT, dp(8), dp(6));
+        add.setBackground(dash);
+        add.setPadding(dp(8), dp(14), dp(8), dp(14));
+        TextView plus = text(40, ACCENT);
+        plus.setText("+");
+        plus.setGravity(Gravity.CENTER);
+        plus.setIncludeFontPadding(false);
+        add.addView(plus);
+        TextView al = text(18, ACCENT);
+        al.setText("Adicionar\naplicativo");
+        al.setGravity(Gravity.CENTER);
+        al.setTypeface(Typeface.DEFAULT_BOLD);
+        al.setPadding(0, dp(4), 0, 0);
+        add.addView(al);
+        add.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { pickApps(); }
+        });
+        boolean left = apps.size() % 2 == 0;
+        r.addView(add, half(left));
+        if (left) r.addView(new View(this), half(false));
+    }
+
+    /** Lista com caixinhas para marcar quais apps ficam na tela inicial. */
+    private void pickApps() {
+        if (allApps.isEmpty()) return;
+        final List<String> current = currentGridKeys();
+        final String[] names = new String[allApps.size()];
+        final boolean[] checked = new boolean[allApps.size()];
+        for (int i = 0; i < allApps.size(); i++) {
+            names[i] = allApps.get(i).display();
+            checked[i] = current.contains(allApps.get(i).key);
         }
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+                .setTitle("Marque os aplicativos da tela inicial")
+                .setMultiChoiceItems(names, checked, new DialogInterface.OnMultiChoiceClickListener() {
+                    @Override public void onClick(DialogInterface d, int which, boolean isChecked) {
+                        checked[which] = isChecked;
+                    }
+                })
+                .setPositiveButton("Salvar", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) {
+                        List<String> keys = new ArrayList<>();
+                        for (String k : current) {
+                            int idx = indexOfKey(k);
+                            if (idx >= 0 && checked[idx]) keys.add(k);
+                        }
+                        for (int i = 0; i < allApps.size(); i++) {
+                            String k = allApps.get(i).key;
+                            if (checked[i] && !keys.contains(k)) keys.add(k);
+                        }
+                        saveHomeKeys(keys);
+                    }
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private int indexOfKey(String key) {
+        for (int i = 0; i < allApps.size(); i++) if (allApps.get(i).key.equals(key)) return i;
+        return -1;
     }
 
     private void homeTileMenu(final App a, final int pos) {
@@ -525,7 +608,7 @@ public class MainActivity extends Activity {
         if (pos < keys.size() - 1) opts.add("Mover para frente");
         opts.add("Tirar da tela inicial");
         opts.add("Informações do app");
-        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
                 .setTitle(a.display())
                 .setItems(opts.toArray(new String[0]), new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface d, int which) {
@@ -562,7 +645,6 @@ public class MainActivity extends Activity {
     private View buildAllApps() {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
-        page.setBackgroundColor(BG);
         page.setPadding(dp(16), dp(16), dp(16), 0);
 
         TextView back = text(20, ACCENT);
@@ -581,7 +663,7 @@ public class MainActivity extends Activity {
         searchBox.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20 * scale);
         searchBox.setSingleLine(true);
         searchBox.setImeOptions(EditorInfo.IME_ACTION_GO);
-        searchBox.setBackground(box(TILE, TILE_LINE, 18));
+        card(searchBox, 18);
         searchBox.setPadding(dp(18), dp(14), dp(18), dp(14));
         LinearLayout.LayoutParams sp = lp(MATCH, WRAP);
         sp.topMargin = dp(6);
@@ -631,7 +713,7 @@ public class MainActivity extends Activity {
                 onHome ? "Tirar da tela inicial" : "Colocar na tela inicial",
                 "Informações do app / desinstalar"
         };
-        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
                 .setTitle(a.display())
                 .setItems(opts, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface d, int which) {
@@ -919,7 +1001,7 @@ public class MainActivity extends Activity {
                 + "•  Deixe a tela desligada\n"
                 + "•  Ligue o modo avião se não precisar receber ligações\n"
                 + "•  Tire a capinha se o celular esquentar";
-        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
                 .setTitle("⚡  Carregar melhor")
                 .setMessage(msg)
                 .setPositiveButton("Ligar modo avião", new DialogInterface.OnClickListener() {
@@ -956,7 +1038,7 @@ public class MainActivity extends Activity {
     private void toggleDnd() {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (!nm.isNotificationPolicyAccessGranted()) {
-            new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
                     .setTitle("🔕  Não perturbe")
                     .setMessage("Para ligar e desligar o Não perturbe com um toque, permita o acesso "
                             + "para \"Launcher Leve Profissional\" na próxima tela. Só precisa fazer isso uma vez.")
@@ -1133,7 +1215,7 @@ public class MainActivity extends Activity {
 
     private void chooseTextSize() {
         int current = prefs.getInt("letra", 1);
-        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
                 .setTitle("Tamanho da letra")
                 .setSingleChoiceItems(SCALE_NAMES, current, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface d, int which) {
@@ -1201,5 +1283,41 @@ public class MainActivity extends Activity {
     static String normalize(String s) {
         String n = Normalizer.normalize(s, Normalizer.Form.NFD);
         return n.replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT).trim();
+    }
+
+    // ================================================================
+    // Fundo: degradê azul-claro para branco com dois brilhos suaves.
+    // Desenhado só quando a tela muda de tamanho — não gasta bateria.
+    // ================================================================
+
+    private static final class SkyDrawable extends Drawable {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint glow1 = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint glow2 = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private float w, h;
+
+        @Override
+        protected void onBoundsChange(Rect b) {
+            w = b.width();
+            h = b.height();
+            paint.setShader(new LinearGradient(0, 0, 0, h,
+                    new int[]{0xFFDDE8FF, 0xFFEFF4FF, 0xFFFFFFFF}, new float[]{0f, 0.45f, 1f},
+                    Shader.TileMode.CLAMP));
+            glow1.setShader(new RadialGradient(w * 0.85f, h * 0.12f, w * 0.7f,
+                    0x66C9D9FF, 0x00C9D9FF, Shader.TileMode.CLAMP));
+            glow2.setShader(new RadialGradient(w * 0.1f, h * 0.55f, w * 0.8f,
+                    0x40E6DCFF, 0x00E6DCFF, Shader.TileMode.CLAMP));
+        }
+
+        @Override
+        public void draw(Canvas c) {
+            c.drawRect(0, 0, w, h, paint);
+            c.drawRect(0, 0, w, h, glow1);
+            c.drawRect(0, 0, w, h, glow2);
+        }
+
+        @Override public void setAlpha(int a) { }
+        @Override public void setColorFilter(ColorFilter cf) { }
+        @Override public int getOpacity() { return PixelFormat.OPAQUE; }
     }
 }
