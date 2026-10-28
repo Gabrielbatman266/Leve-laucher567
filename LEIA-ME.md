@@ -1,10 +1,14 @@
-# Leve Launcher v7
+# Leve Launcher v8
 
 Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no nome da aba.
 
 - **Essenciais**: seus atalhos (YMusic, Nyx, Instagram e clones, Threads, Google Flow,
   Claude, ChatGPT, Brave, TikTok já entram sozinhos se estiverem instalados) + controle de música.
   Toque longo: mover para cima/baixo ou remover. "+ Adicionar atalho" leva para a aba Todos.
+- **Barra fixa embaixo**: Telefone, Mensagens, Câmera, Calculadora e Galeria.
+  Segure o dedo num botão para trocar por qualquer outro app.
+- **Novos**: apps baixados nos últimos 30 dias, separados em Hoje, Ontem, Esta semana e Este mês.
+  Na lista Todos, apps com menos de 3 dias ganham o selo "novo".
 - **Frequentes**: os 12 apps que você mais abre.
 - **Todos**: todos os apps, inclusive clones, separados por letra.
 - **Bateria**: nível, consumo agora, tempo restante, temperatura e os apps que mais

@@ -78,14 +78,18 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * Leve Launcher v7 — tela inicial minimalista com tema espacial.
+ * Leve Launcher v8 — tela inicial minimalista com tema espacial.
  *
  * Abas (toque no nome ou deslize para os lados):
  *   Essenciais  – seus atalhos organizados + controle de música
+ *   Novos       – apps baixados nos últimos 30 dias
  *   Frequentes  – os apps que você mais abre
  *   Todos       – todos os apps (inclusive clones), separados por letra
  *   Bateria     – nível, consumo, tempo restante e quais apps mais gastaram hoje
  *   Sistema     – RAM, CPU, temperatura, armazenamento
+ *
+ * Barra fixa embaixo: Telefone, Mensagens, Câmera, Calculadora e Galeria
+ * (segure o dedo num botão para trocar por outro app).
  *
  * Economia: fundo preto puro, sem ícones, sem widgets, sem bibliotecas.
  * As medições e a animação do fundo só rodam com a tela inicial visível,
@@ -106,9 +110,16 @@ public class MainActivity extends Activity {
     private static final int REQ_HOME = 7;
     private static final long STATS_EVERY_MS = 3000;
 
-    private static final int TAB_ESS = 0, TAB_FREQ = 1, TAB_ALL = 2, TAB_BAT = 3, TAB_SYS = 4;
-    private static final String[] TAB_NAMES = {"Essenciais", "Frequentes", "Todos", "Bateria", "Sistema"};
-    private static final int TABS = 5;
+    private static final int TAB_ESS = 0, TAB_NEW = 1, TAB_FREQ = 2, TAB_ALL = 3, TAB_BAT = 4, TAB_SYS = 5;
+    private static final String[] TAB_NAMES = {"Essenciais", "Novos", "Frequentes", "Todos", "Bateria", "Sistema"};
+    private static final int TABS = 6;
+    private static final long DAY = 24L * 60 * 60 * 1000;
+    private static final long NEW_BADGE_MS = 3 * DAY;
+    private static final long NEW_TAB_MS = 30 * DAY;
+
+    // Barra de baixo: atalhos fixos (dá para trocar segurando o dedo)
+    private static final String[] DOCK_SYMBOL = {"☎", "✉", "◎", "⊞", "▦"};
+    private static final String[] DOCK_NAME = {"Telefone", "Mensagens", "Câmera", "Calculadora", "Galeria"};
     private static final long USAGE_EVERY_MS = 30000;
 
     private static final Locale BR = new Locale("pt", "BR");
@@ -121,6 +132,7 @@ public class MainActivity extends Activity {
         final ComponentName component;
         final UserHandle user;
         final boolean clone;
+        long installed;
 
         App(String label, ComponentName component, UserHandle user, long serial, boolean clone) {
             this.label = label;
@@ -132,6 +144,8 @@ public class MainActivity extends Activity {
         }
 
         String display() { return clone ? label + "  · clone" : label; }
+
+        boolean isNew() { return installed > 0 && System.currentTimeMillis() - installed < NEW_BADGE_MS; }
     }
 
     /** Item da aba Essenciais: um app ou um site. */
@@ -426,8 +440,119 @@ public class MainActivity extends Activity {
         pages.addView(pageBat, new FrameLayout.LayoutParams(MATCH, MATCH));
         pages.addView(pageSys, new FrameLayout.LayoutParams(MATCH, MATCH));
 
+        // --- Barra fixa embaixo com os essenciais do celular ---
+        LinearLayout dock = new LinearLayout(this);
+        dock.setOrientation(LinearLayout.HORIZONTAL);
+        dock.setBackground(pill(SURFACE, LINE));
+        dock.setPadding(dp(4), dp(6), dp(4), dp(6));
+        LinearLayout.LayoutParams dlp = lp(MATCH, WRAP);
+        dlp.topMargin = dp(8);
+        dlp.bottomMargin = dp(14);
+        root.addView(dock, dlp);
+        for (int i = 0; i < DOCK_NAME.length; i++) {
+            dockViews[i] = dockButton(i);
+            dock.addView(dockViews[i], new LinearLayout.LayoutParams(0, WRAP, 1f));
+        }
+
         showTab(false);
         return frame;
+    }
+
+    private final LinearLayout[] dockViews = new LinearLayout[5];
+
+    private LinearLayout dockButton(final int i) {
+        LinearLayout b = new LinearLayout(this);
+        b.setOrientation(LinearLayout.VERTICAL);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(0, dp(6), 0, dp(6));
+        TextView sym = text(20, TEXT);
+        sym.setText(DOCK_SYMBOL[i]);
+        sym.setGravity(Gravity.CENTER);
+        b.addView(sym);
+        TextView name = text(10.5f, MUTED);
+        name.setText(DOCK_NAME[i]);
+        name.setGravity(Gravity.CENTER);
+        name.setSingleLine(true);
+        name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        b.addView(name, lp(MATCH, WRAP));
+        b.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { openDock(i); }
+        });
+        b.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override public boolean onLongClick(View v) { chooseDockApp(i); return true; }
+        });
+        return b;
+    }
+
+    private void updateDockLabels() {
+        for (int i = 0; i < dockViews.length; i++) {
+            if (dockViews[i] == null) continue;
+            App custom = byKey.get(prefs.getString("dock" + i, ""));
+            TextView name = (TextView) dockViews[i].getChildAt(1);
+            name.setText(custom != null ? custom.label : DOCK_NAME[i]);
+        }
+    }
+
+    private void openDock(int i) {
+        App custom = byKey.get(prefs.getString("dock" + i, ""));
+        if (custom != null) { launch(custom); return; }
+        boolean ok = false;
+        switch (i) {
+            case 0:
+                ok = startQuiet(new Intent(Intent.ACTION_DIAL));
+                break;
+            case 1: {
+                String sms = null;
+                try { sms = android.provider.Telephony.Sms.getDefaultSmsPackage(this); } catch (Exception ignored) { }
+                Intent li = sms != null ? getPackageManager().getLaunchIntentForPackage(sms) : null;
+                ok = (li != null && startQuiet(li)) || openByWords("mensagens", "messages", "sms")
+                        || startQuiet(Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MESSAGING));
+                break;
+            }
+            case 2:
+                ok = startQuiet(new Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA))
+                        || openByWords("camera");
+                break;
+            case 3:
+                ok = openByWords("calculadora", "calculator")
+                        || startQuiet(Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_CALCULATOR));
+                break;
+            case 4:
+                ok = openByWords("galeria", "gallery", "fotos", "photos")
+                        || startQuiet(Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_GALLERY));
+                break;
+        }
+        if (!ok) Toast.makeText(this, "Segure o dedo no botão para escolher o app", Toast.LENGTH_LONG).show();
+    }
+
+    /** Abre o primeiro app (não clone) cujo nome tenha uma das palavras. */
+    private boolean openByWords(String... words) {
+        for (String w : words) {
+            for (App a : allApps) {
+                if (!a.clone && a.search.contains(w)) { launch(a); return true; }
+            }
+        }
+        return false;
+    }
+
+    private void chooseDockApp(final int i) {
+        if (allApps.isEmpty()) return;
+        final List<App> apps = new ArrayList<>();
+        final List<String> names = new ArrayList<>();
+        names.add("↺  Padrão (" + DOCK_NAME[i] + ")");
+        for (App a : allApps) {
+            apps.add(a);
+            names.add(a.display());
+        }
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Botão " + (i + 1) + " da barra")
+                .setItems(names.toArray(new String[0]), new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int which) {
+                        if (which == 0) prefs.edit().remove("dock" + i).apply();
+                        else prefs.edit().putString("dock" + i, apps.get(which - 1).key).apply();
+                        updateDockLabels();
+                    }
+                }).show();
     }
 
     private TextView quickButton(String label, View.OnClickListener click) {
@@ -758,6 +883,24 @@ public class MainActivity extends Activity {
                                 new ComponentName(ri.activityInfo.packageName, ri.activityInfo.name), me, serial, false));
                     }
                 }
+                PackageManager pmi = getPackageManager();
+                Map<String, Long> installTimes = new HashMap<>();
+                for (App a : result) {
+                    String pkg = a.component.getPackageName();
+                    Long t = installTimes.get(pkg);
+                    if (t == null) {
+                        t = 0L;
+                        try {
+                            android.content.pm.PackageInfo pi = pmi.getPackageInfo(pkg, 0);
+                            boolean system = pi.applicationInfo != null && (pi.applicationInfo.flags
+                                    & (android.content.pm.ApplicationInfo.FLAG_SYSTEM
+                                    | android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0;
+                            if (!system) t = pi.firstInstallTime;
+                        } catch (Exception ignored) { }
+                        installTimes.put(pkg, t);
+                    }
+                    a.installed = t;
+                }
                 final Collator collator = Collator.getInstance(Locale.getDefault());
                 collator.setStrength(Collator.PRIMARY);
                 Collections.sort(result, new Comparator<App>() {
@@ -778,6 +921,7 @@ public class MainActivity extends Activity {
                             createDefaultEssentials();
                         }
                         rebuildEssentials();
+                        updateDockLabels();
                         if (tab == TAB_ESS && essItems.isEmpty()) {
                             tab = TAB_ALL;
                             showTab(false);
@@ -812,8 +956,27 @@ public class MainActivity extends Activity {
                 else if (a.search.contains(q)) contains.add(a);
             }
             rows.addAll(contains);
+        } else if (tab == TAB_NEW) {
+            List<App> fresh = new ArrayList<>();
+            long now = System.currentTimeMillis();
+            for (App a : allApps) if (a.installed > 0 && now - a.installed < NEW_TAB_MS) fresh.add(a);
+            Collections.sort(fresh, new Comparator<App>() {
+                @Override public int compare(App a, App b) { return Long.compare(b.installed, a.installed); }
+            });
+            String last = null;
+            for (App a : fresh) {
+                String group = installGroup(a.installed);
+                if (!group.equals(last)) {
+                    rows.add(group);
+                    last = group;
+                }
+                rows.add(a);
+            }
+            emptyHint.setText("Nenhum app novo nos últimos 30 dias.");
+            showEmpty = rows.isEmpty() && !allApps.isEmpty();
         } else if (tab == TAB_FREQ) {
             rows.addAll(frequentApps());
+            emptyHint.setText("Os apps que você mais usar vão aparecer aqui.");
             showEmpty = rows.isEmpty() && !allApps.isEmpty();
         } else if (tab == TAB_ALL) {
             String last = null;
@@ -828,6 +991,20 @@ public class MainActivity extends Activity {
         }
         emptyHint.setVisibility(showEmpty ? View.VISIBLE : View.GONE);
         adapter.notifyDataSetChanged();
+    }
+
+    /** Agrupa por data de instalação: HOJE, ONTEM, ESTA SEMANA, ESTE MÊS. */
+    private static String installGroup(long when) {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.set(java.util.Calendar.HOUR_OF_DAY, 0);
+        c.set(java.util.Calendar.MINUTE, 0);
+        c.set(java.util.Calendar.SECOND, 0);
+        c.set(java.util.Calendar.MILLISECOND, 0);
+        long today = c.getTimeInMillis();
+        if (when >= today) return "HOJE";
+        if (when >= today - DAY) return "ONTEM";
+        if (when >= today - 6 * DAY) return "ESTA SEMANA";
+        return "ESTE MÊS";
     }
 
     private static String firstLetter(String s) {
@@ -1611,7 +1788,16 @@ public class MainActivity extends Activity {
                 tv.setText((String) o);
             } else {
                 if (tv == null) tv = appRowView();
-                tv.setText(((App) o).display());
+                App app = (App) o;
+                if (app.isNew() && tab != TAB_NEW) {
+                    android.text.SpannableString sp = new android.text.SpannableString(app.display() + "  novo");
+                    int start = sp.length() - 4;
+                    sp.setSpan(new android.text.style.ForegroundColorSpan(ACCENT), start, sp.length(), 0);
+                    sp.setSpan(new android.text.style.RelativeSizeSpan(0.6f), start, sp.length(), 0);
+                    tv.setText(sp);
+                } else {
+                    tv.setText(app.display());
+                }
             }
             return tv;
         }
