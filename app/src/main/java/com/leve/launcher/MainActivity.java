@@ -922,15 +922,6 @@ public class MainActivity extends Activity {
         ((View) musicAppValue.getParent()).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { chooseMusicApp(); }
         });
-        musicAccessValue = row(c, "Mostrar música tocando");
-        ((View) musicAccessValue.getParent()).setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                Toast.makeText(MainActivity.this, "Ative \"Leve Launcher\" na lista", Toast.LENGTH_LONG).show();
-                if (!startQuiet(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))) {
-                    tryStart(new Intent(Settings.ACTION_SETTINGS));
-                }
-            }
-        });
         updateMusicSettings();
         TextView change = row(c, "Tela inicial padrão");
         change.setText("Trocar ›");
@@ -1411,30 +1402,15 @@ public class MainActivity extends Activity {
 
     // ---------- Música ----------
 
-    private TextView musicAppValue, musicAccessValue;
+    private TextView musicAppValue;
 
-    private boolean musicAccess() {
-        String flat = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
-        return flat != null && flat.contains(getPackageName());
-    }
-
-    /** O player que está tocando agora (ou o último ativo). Precisa da permissão de notificações. */
+    /**
+     * Ler o player ativo exige a permissão de notificações, que faz o Play Protect
+     * bloquear a instalação fora da Play Store. Por isso fica desligado: os botões
+     * usam as teclas de mídia, que funcionam com qualquer player.
+     */
     private android.media.session.MediaController activeController() {
-        if (!musicAccess()) return null;
-        try {
-            android.media.session.MediaSessionManager msm = (android.media.session.MediaSessionManager)
-                    getSystemService(MEDIA_SESSION_SERVICE);
-            List<android.media.session.MediaController> list =
-                    msm.getActiveSessions(new ComponentName(this, MusicListener.class));
-            if (list == null || list.isEmpty()) return null;
-            for (android.media.session.MediaController mc : list) {
-                android.media.session.PlaybackState ps = mc.getPlaybackState();
-                if (ps != null && ps.getState() == android.media.session.PlaybackState.STATE_PLAYING) return mc;
-            }
-            return list.get(0);
-        } catch (Exception e) {
-            return null;
-        }
+        return null;
     }
 
     /** App escolhido em Sistema → App de música, ou o primeiro de música instalado. */
@@ -1513,14 +1489,12 @@ public class MainActivity extends Activity {
         if (musicAppValue == null) return;
         App chosen = byKey.get(prefs.getString("music_app", ""));
         musicAppValue.setText(chosen != null ? chosen.label + " ›" : "Automático ›");
-        musicAccessValue.setText(musicAccess() ? "Ligado" : "Permitir ›");
-        musicAccessValue.setTextColor(musicAccess() ? TEXT : ACCENT);
     }
 
     private void chooseMusicApp() {
         final List<App> apps = new ArrayList<>();
         final List<String> names = new ArrayList<>();
-        names.add("Automático (a música que estiver tocando)");
+        names.add("Automático (Leve Music, YMusic ou Nyx)");
         // Apps de música primeiro
         for (String w : new String[]{"leve music", "ymusic", "nyx", "spotify", "deezer", "youtube music", "music"}) {
             for (App a : allApps) {
