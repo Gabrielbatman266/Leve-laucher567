@@ -25,6 +25,7 @@
         <package android:name="com.miui.cleanmaster" />
         <package android:name="com.miui.securitycenter" />
         <package android:name="com.miui.powerkeeper" />
+        <package android:name="com.gabriel.levemusic" />
     </queries>
 
     <application
@@ -52,5 +53,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Para mostrar a música que está tocando e abrir o app dela -->
+        <service
+            android:name=".MusicListener"
+            android:exported="true"
+            android:label="Leve Launcher (música tocando)"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

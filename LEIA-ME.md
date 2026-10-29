@@ -1,4 +1,4 @@
-# Leve Launcher v9
+# Leve Launcher v10
 
 Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no nome da aba.
 
@@ -9,6 +9,9 @@ Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no n
   Segure o dedo num botão para trocar por qualquer outro app.
 - **Novos**: apps baixados nos últimos 30 dias, separados em Hoje, Ontem, Esta semana e Este mês.
   Na lista Todos, apps com menos de 3 dias ganham o selo "novo".
+- **Música** (aba Essenciais): mostra o nome da música tocando; toque para abrir o player dela.
+  Em Sistema → "App de música" dá para escolher o app do atalho (Leve Music, YMusic, Nyx...).
+  Em Sistema → "Mostrar música tocando" libera a permissão uma vez.
 - **Frequentes**: os 12 apps que você mais abre.
 - **Todos**: todos os apps, inclusive clones. Botões para organizar: **A–Z**, **Categorias**
   (Jogos, Conversas, Redes sociais, Bancos, Vídeo, Música...), **Tamanho** (do maior para o menor) e **Jogos**.

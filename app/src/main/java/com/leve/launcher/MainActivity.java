@@ -78,7 +78,7 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * Leve Launcher v9 — tela inicial minimalista com tema espacial.
+ * Leve Launcher v10 — tela inicial minimalista com tema espacial.
  *
  * Abas (toque no nome ou deslize para os lados):
  *   Essenciais  – seus atalhos organizados + controle de música
@@ -264,6 +264,7 @@ public class MainActivity extends Activity {
         super.onResume();
         resumed = true;
         lastUsageAt = 0;
+        updateMusicSettings();
         defaultBanner.setVisibility(isDefaultHome() ? View.GONE : View.VISIBLE);
         ui.removeCallbacks(tick);
         ui.post(tick);
@@ -758,6 +759,20 @@ public class MainActivity extends Activity {
         b.setPadding(dp(12), dp(6), dp(12), dp(6));
         b.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
+                android.media.session.MediaController mc = activeController();
+                if (mc != null) {
+                    android.media.session.MediaController.TransportControls tc = mc.getTransportControls();
+                    android.media.session.PlaybackState ps = mc.getPlaybackState();
+                    boolean playing = ps != null && ps.getState() == android.media.session.PlaybackState.STATE_PLAYING;
+                    if (keyCode == KeyEvent.KEYCODE_MEDIA_PREVIOUS) tc.skipToPrevious();
+                    else if (keyCode == KeyEvent.KEYCODE_MEDIA_NEXT) tc.skipToNext();
+                    else if (playing) tc.pause();
+                    else tc.play();
+                    ui.postDelayed(new Runnable() {
+                        @Override public void run() { updateNowPlaying(); }
+                    }, 400);
+                    return;
+                }
                 AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
                 if (am == null) return;
                 long t = SystemClock.uptimeMillis();
@@ -903,6 +918,20 @@ public class MainActivity extends Activity {
                 updateAnimation();
             }
         });
+        musicAppValue = row(c, "App de música");
+        ((View) musicAppValue.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { chooseMusicApp(); }
+        });
+        musicAccessValue = row(c, "Mostrar música tocando");
+        ((View) musicAccessValue.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Toast.makeText(MainActivity.this, "Ative \"Leve Launcher\" na lista", Toast.LENGTH_LONG).show();
+                if (!startQuiet(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))) {
+                    tryStart(new Intent(Settings.ACTION_SETTINGS));
+                }
+            }
+        });
+        updateMusicSettings();
         TextView change = row(c, "Tela inicial padrão");
         change.setText("Trocar ›");
         ((View) change.getParent()).setOnClickListener(new View.OnClickListener() {
@@ -1094,8 +1123,10 @@ public class MainActivity extends Activity {
                         if (!prefs.getBoolean("ess_init", false) && !allApps.isEmpty()) {
                             createDefaultEssentials();
                         }
+                        addLeveMusicOnce();
                         rebuildEssentials();
                         updateDockLabels();
+                        updateMusicSettings();
                         if (tab == TAB_ESS && essItems.isEmpty()) {
                             tab = TAB_ALL;
                             showTab(false);
@@ -1323,7 +1354,7 @@ public class MainActivity extends Activity {
 
     /** Primeira vez: já coloca os apps que você pediu, se estiverem instalados. */
     private void createDefaultEssentials() {
-        String[] wanted = {"ymusic", "nyx", "instagram", "threads", "flow", "claude", "chatgpt", "brave", "tiktok"};
+        String[] wanted = {"leve music", "ymusic", "nyx", "instagram", "threads", "flow", "claude", "chatgpt", "brave", "tiktok"};
         List<String> keys = new ArrayList<>();
         boolean flowFound = false;
         for (String w : wanted) {
@@ -1378,20 +1409,157 @@ public class MainActivity extends Activity {
         return null;
     }
 
+    // ---------- Música ----------
+
+    private TextView musicAppValue, musicAccessValue;
+
+    private boolean musicAccess() {
+        String flat = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
+        return flat != null && flat.contains(getPackageName());
+    }
+
+    /** O player que está tocando agora (ou o último ativo). Precisa da permissão de notificações. */
+    private android.media.session.MediaController activeController() {
+        if (!musicAccess()) return null;
+        try {
+            android.media.session.MediaSessionManager msm = (android.media.session.MediaSessionManager)
+                    getSystemService(MEDIA_SESSION_SERVICE);
+            List<android.media.session.MediaController> list =
+                    msm.getActiveSessions(new ComponentName(this, MusicListener.class));
+            if (list == null || list.isEmpty()) return null;
+            for (android.media.session.MediaController mc : list) {
+                android.media.session.PlaybackState ps = mc.getPlaybackState();
+                if (ps != null && ps.getState() == android.media.session.PlaybackState.STATE_PLAYING) return mc;
+            }
+            return list.get(0);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** App escolhido em Sistema → App de música, ou o primeiro de música instalado. */
+    private App musicApp() {
+        App chosen = byKey.get(prefs.getString("music_app", ""));
+        if (chosen != null) return chosen;
+        App a = findApp("leve music");
+        if (a == null) a = findAppPackage("com.gabriel.levemusic");
+        if (a == null) a = findApp("ymusic");
+        if (a == null) a = findApp("nyx");
+        return a;
+    }
+
+    private App findAppPackage(String pkg) {
+        for (App a : allApps) if (!a.clone && a.component.getPackageName().equals(pkg)) return a;
+        return null;
+    }
+
+    /** Toque no nome da música: abre a tela do player que está tocando. */
     private void openMusicApp() {
-        App y = findApp("ymusic");
-        if (y == null) y = findApp("nyx");
-        if (y != null) { launch(y); return; }
+        android.media.session.MediaController mc = activeController();
+        if (mc != null && prefs.getString("music_app", "").isEmpty()) {
+            android.app.PendingIntent pi = mc.getSessionActivity();
+            if (pi != null) {
+                try {
+                    if (Build.VERSION.SDK_INT >= 34) {
+                        android.app.ActivityOptions o = android.app.ActivityOptions.makeBasic();
+                        o.setPendingIntentBackgroundActivityStartMode(
+                                android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
+                        pi.send(this, 0, null, null, null, null, o.toBundle());
+                    } else {
+                        pi.send();
+                    }
+                    return;
+                } catch (Exception ignored) { }
+            }
+            App playing = findAppPackage(mc.getPackageName());
+            if (playing != null) { launch(playing); return; }
+        }
+        App a = musicApp();
+        if (a != null) { launch(a); return; }
         if (!startQuiet(Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MUSIC))) {
-            Toast.makeText(this, "Nenhum app de música encontrado", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Escolha o app em Sistema → App de música", Toast.LENGTH_LONG).show();
         }
     }
 
     private void updateNowPlaying() {
-        AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
-        boolean playing = am != null && am.isMusicActive();
-        nowPlaying.setText(playing ? "♪  Tocando agora" : "♪  Música");
+        android.media.session.MediaController mc = activeController();
+        String text = null;
+        boolean playing = false;
+        if (mc != null) {
+            android.media.session.PlaybackState ps = mc.getPlaybackState();
+            playing = ps != null && ps.getState() == android.media.session.PlaybackState.STATE_PLAYING;
+            android.media.MediaMetadata md = mc.getMetadata();
+            if (md != null) {
+                String title = md.getString(android.media.MediaMetadata.METADATA_KEY_TITLE);
+                String artist = md.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST);
+                if (title != null && !title.isEmpty()) {
+                    text = "♪  " + title + (artist != null && !artist.isEmpty() ? "  ·  " + artist : "");
+                }
+            }
+        } else {
+            AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
+            playing = am != null && am.isMusicActive();
+        }
+        if (text == null) {
+            App a = musicApp();
+            text = playing ? "♪  Tocando agora" : "♪  " + (a != null ? a.label : "Música");
+        }
+        nowPlaying.setText(text);
+        nowPlaying.setEllipsize(android.text.TextUtils.TruncateAt.END);
         nowPlaying.setTextColor(playing ? ACCENT : MUTED);
+    }
+
+    private void updateMusicSettings() {
+        if (musicAppValue == null) return;
+        App chosen = byKey.get(prefs.getString("music_app", ""));
+        musicAppValue.setText(chosen != null ? chosen.label + " ›" : "Automático ›");
+        musicAccessValue.setText(musicAccess() ? "Ligado" : "Permitir ›");
+        musicAccessValue.setTextColor(musicAccess() ? TEXT : ACCENT);
+    }
+
+    private void chooseMusicApp() {
+        final List<App> apps = new ArrayList<>();
+        final List<String> names = new ArrayList<>();
+        names.add("Automático (a música que estiver tocando)");
+        // Apps de música primeiro
+        for (String w : new String[]{"leve music", "ymusic", "nyx", "spotify", "deezer", "youtube music", "music"}) {
+            for (App a : allApps) {
+                if (!a.clone && a.search.contains(w) && !apps.contains(a)) {
+                    apps.add(a);
+                    names.add("♪  " + a.label);
+                }
+            }
+        }
+        for (App a : allApps) {
+            if (!apps.contains(a)) {
+                apps.add(a);
+                names.add(a.display());
+            }
+        }
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("App do atalho de música")
+                .setItems(names.toArray(new String[0]), new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int which) {
+                        if (which == 0) prefs.edit().remove("music_app").apply();
+                        else prefs.edit().putString("music_app", apps.get(which - 1).key).apply();
+                        updateMusicSettings();
+                        updateNowPlaying();
+                    }
+                }).show();
+    }
+
+    /** Coloca o Leve Music nos Essenciais uma vez, quando ele estiver instalado. */
+    private void addLeveMusicOnce() {
+        if (prefs.getBoolean("ess_levemusic", false)) return;
+        App lm = findAppPackage("com.gabriel.levemusic");
+        if (lm == null) lm = findApp("leve music");
+        if (lm == null) return;
+        List<String> k = essKeys();
+        if (!k.contains(lm.key)) {
+            k.add(0, lm.key);
+            prefs.edit().putString("ess", android.text.TextUtils.join("\n", k)).apply();
+        }
+        prefs.edit().putBoolean("ess_levemusic", true).apply();
     }
 
     // ---------- Frequência de uso ----------
