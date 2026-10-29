@@ -78,7 +78,7 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * Leve Launcher v10 — tela inicial minimalista com tema espacial.
+ * Leve Launcher v11 — tela inicial minimalista com tema espacial.
  *
  * Abas (toque no nome ou deslize para os lados):
  *   Essenciais  – seus atalhos organizados + controle de música
@@ -154,10 +154,14 @@ public class MainActivity extends Activity {
 
     /** Item da aba Essenciais: um app ou um site. */
     private static final class Ess {
-        final String key, label, url;
+        final String key, label, url, name, pkg;
         final App app;
-        Ess(String key, App app) { this.key = key; this.app = app; this.label = app.display(); this.url = null; }
-        Ess(String key, String label, String url) { this.key = key; this.app = null; this.label = label; this.url = url; }
+        Ess(String key, App app) {
+            this.key = key; this.app = app; this.label = app.display(); this.url = null; this.name = null; this.pkg = null;
+        }
+        Ess(String key, String name, String url, String pkg) {
+            this.key = key; this.app = null; this.name = name; this.label = name + "  ↗"; this.url = url; this.pkg = pkg;
+        }
     }
 
     private static final class Stats {
@@ -720,7 +724,7 @@ public class MainActivity extends Activity {
         player.addView(mediaButton("⏭", KeyEvent.KEYCODE_MEDIA_NEXT));
 
         essHint = text(14, MUTED);
-        essHint.setText("Seus atalhos aparecem aqui.\nNa aba Todos, toque longo num app → Adicionar aos Essenciais.");
+        essHint.setText("Seus atalhos aparecem aqui.\nToque em \"+ Adicionar atalho\" para colocar apps, sites ou links.");
         essHint.setLineSpacing(dp(4), 1f);
         essHint.setPadding(0, dp(18), 0, 0);
         essHint.setVisibility(View.GONE);
@@ -732,14 +736,12 @@ public class MainActivity extends Activity {
         essList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override public void onItemClick(AdapterView<?> p, View v, int pos, long id) {
                 if (pos >= essItems.size()) {
-                    selectTab(TAB_ALL);
-                    Toast.makeText(MainActivity.this,
-                            "Toque longo num app → Adicionar aos Essenciais", Toast.LENGTH_LONG).show();
+                    showAddShortcut();
                     return;
                 }
                 Ess e = essItems.get(pos);
                 if (e.app != null) launch(e.app);
-                else tryStart(new Intent(Intent.ACTION_VIEW, Uri.parse(e.url)));
+                else openLink(e);
             }
         });
         essList.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
@@ -1331,9 +1333,12 @@ public class MainActivity extends Activity {
         essItems.clear();
         for (String k : essKeys()) {
             if (k.startsWith("web:")) {
-                String rest = k.substring(4);
-                int bar = rest.indexOf('|');
-                if (bar > 0) essItems.add(new Ess(k, rest.substring(bar + 1) + "  ↗", rest.substring(0, bar)));
+                // Formato: web:<link>|<nome>[|<pacote do app que abre>]
+                String[] parts = k.substring(4).split("\\|", -1);
+                if (parts.length >= 2 && !parts[0].isEmpty()) {
+                    String pkg = parts.length >= 3 && !parts[2].isEmpty() ? parts[2] : null;
+                    essItems.add(new Ess(k, parts[1], parts[0], pkg));
+                }
             } else {
                 App a = byKey.get(k);
                 if (a != null) essItems.add(new Ess(k, a));
@@ -1370,6 +1375,10 @@ public class MainActivity extends Activity {
         final List<String> opts = new ArrayList<>();
         if (pos > 0) opts.add("Mover para cima");
         if (pos < essItems.size() - 1) opts.add("Mover para baixo");
+        if (e.app == null) {
+            opts.add("Editar nome e link");
+            opts.add("Abrir com outro app");
+        }
         opts.add("Remover dos Essenciais");
         if (e.app != null) opts.add("Informações do app / desinstalar");
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
@@ -1386,6 +1395,12 @@ public class MainActivity extends Activity {
                             Collections.swap(k, pos, pos + 1);
                         } else if (o.startsWith("Remover")) {
                             k.remove(pos);
+                        } else if (o.startsWith("Editar")) {
+                            editLink(pos, e);
+                            return;
+                        } else if (o.startsWith("Abrir com")) {
+                            chooseOpener(pos, e);
+                            return;
                         } else {
                             openAppInfo(e.app);
                             return;
@@ -1393,6 +1408,237 @@ public class MainActivity extends Activity {
                         saveEssKeys(k);
                     }
                 }).show();
+    }
+
+
+    // ---------- Atalhos de link (sites, WhatsApp, pesquisas, rotas) ----------
+
+    private static String webKey(String url, String name, String pkg) {
+        String u = url.replace("|", "%7C").replace("\n", "");
+        String n = name.replace("|", "/").replace("\n", " ").trim();
+        return "web:" + u + "|" + n + (pkg != null ? "|" + pkg : "");
+    }
+
+    private void addEssKey(String key) {
+        List<String> k = new ArrayList<>();
+        for (Ess it : essItems) k.add(it.key);
+        k.add(key);
+        saveEssKeys(k);
+        Toast.makeText(this, "Atalho criado", Toast.LENGTH_SHORT).show();
+    }
+
+    private void replaceEssKey(int pos, String key) {
+        List<String> k = new ArrayList<>();
+        for (Ess it : essItems) k.add(it.key);
+        if (pos >= 0 && pos < k.size()) k.set(pos, key); else k.add(key);
+        saveEssKeys(k);
+    }
+
+    private static String enc(String s) {
+        try { return java.net.URLEncoder.encode(s.trim(), "UTF-8"); } catch (Exception e) { return s.trim(); }
+    }
+
+    /** Aceita "site.com", "https://...", "whatsapp://..." e outros links de apps. */
+    private static String fixUrl(String raw) {
+        String u = raw.trim();
+        if (u.isEmpty()) return u;
+        if (u.contains("://") || u.startsWith("intent:") || u.startsWith("tel:") || u.startsWith("mailto:")
+                || u.startsWith("geo:") || u.startsWith("sms:")) return u;
+        return "https://" + u;
+    }
+
+    private static String hostName(String url) {
+        try {
+            String h = Uri.parse(url).getHost();
+            if (h == null) return "Link";
+            if (h.startsWith("www.")) h = h.substring(4);
+            int dot = h.indexOf('.');
+            String n = dot > 0 ? h.substring(0, dot) : h;
+            return n.isEmpty() ? "Link" : Character.toUpperCase(n.charAt(0)) + n.substring(1);
+        } catch (Exception e) {
+            return "Link";
+        }
+    }
+
+    private void showAddShortcut() {
+        final String[] opts = {
+                "▢  App instalado",
+                "↗  Site ou link",
+                "✆  Conversa do WhatsApp (número)",
+                "▶  Pesquisa no YouTube",
+                "⌕  Pesquisa no Google",
+                "⌖  Rota no Maps (endereço)"
+        };
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Novo atalho")
+                .setItems(opts, new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int which) {
+                        switch (which) {
+                            case 0: pickAppForEss(); break;
+                            case 1:
+                                linkForm("Site ou link", "Nome (ex.: Meu banco)", "Link (ex.: site.com.br)",
+                                        "", "", android.text.InputType.TYPE_TEXT_VARIATION_URI, new LinkDone() {
+                                            @Override public void done(String name, String value) {
+                                                String url = fixUrl(value);
+                                                addEssKey(webKey(url, name.isEmpty() ? hostName(url) : name, null));
+                                            }
+                                        });
+                                break;
+                            case 2:
+                                linkForm("Conversa do WhatsApp", "Nome (ex.: Mãe)", "Número com DDD (ex.: 11 91234-5678)",
+                                        "", "", android.text.InputType.TYPE_CLASS_PHONE, new LinkDone() {
+                                            @Override public void done(String name, String value) {
+                                                String digits = value.replaceAll("[^0-9]", "");
+                                                if (digits.length() <= 11) digits = "55" + digits;
+                                                addEssKey(webKey("https://wa.me/" + digits,
+                                                        name.isEmpty() ? "WhatsApp " + value.trim() : name, null));
+                                            }
+                                        });
+                                break;
+                            case 3:
+                                linkForm("Pesquisa no YouTube", "Nome (ex.: Lofi)", "O que pesquisar",
+                                        "", "", android.text.InputType.TYPE_CLASS_TEXT, new LinkDone() {
+                                            @Override public void done(String name, String value) {
+                                                addEssKey(webKey("https://www.youtube.com/results?search_query=" + enc(value),
+                                                        name.isEmpty() ? "YouTube: " + value.trim() : name, null));
+                                            }
+                                        });
+                                break;
+                            case 4:
+                                linkForm("Pesquisa no Google", "Nome (ex.: Cotação do dólar)", "O que pesquisar",
+                                        "", "", android.text.InputType.TYPE_CLASS_TEXT, new LinkDone() {
+                                            @Override public void done(String name, String value) {
+                                                addEssKey(webKey("https://www.google.com/search?q=" + enc(value),
+                                                        name.isEmpty() ? value.trim() : name, null));
+                                            }
+                                        });
+                                break;
+                            default:
+                                linkForm("Rota no Maps", "Nome (ex.: Casa)", "Endereço de destino",
+                                        "", "", android.text.InputType.TYPE_CLASS_TEXT, new LinkDone() {
+                                            @Override public void done(String name, String value) {
+                                                addEssKey(webKey("https://www.google.com/maps/dir/?api=1&destination=" + enc(value),
+                                                        name.isEmpty() ? "Rota: " + value.trim() : name, null));
+                                            }
+                                        });
+                                break;
+                        }
+                    }
+                }).show();
+    }
+
+    private interface LinkDone { void done(String name, String value); }
+
+    private void linkForm(String title, String nameHint, String valueHint, String name, String value,
+                          int valueType, final LinkDone cb) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(22), dp(8), dp(22), 0);
+        final EditText n = new EditText(this);
+        n.setHint(nameHint);
+        n.setSingleLine(true);
+        n.setText(name);
+        box.addView(n, lp(MATCH, WRAP));
+        final EditText v = new EditText(this);
+        v.setHint(valueHint);
+        v.setSingleLine(true);
+        v.setInputType(valueType == android.text.InputType.TYPE_TEXT_VARIATION_URI
+                ? android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI
+                : valueType);
+        v.setText(value);
+        box.addView(v, lp(MATCH, WRAP));
+        final AlertDialog dlg = new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(title)
+                .setView(box)
+                .setPositiveButton("Salvar", null)
+                .setNegativeButton("Cancelar", null)
+                .create();
+        dlg.setOnShowListener(new DialogInterface.OnShowListener() {
+            @Override public void onShow(DialogInterface d) {
+                dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+                    @Override public void onClick(View b) {
+                        String val = v.getText().toString().trim();
+                        if (val.isEmpty()) {
+                            v.setError("Preencha aqui");
+                            return;
+                        }
+                        cb.done(n.getText().toString().trim(), val);
+                        dlg.dismiss();
+                    }
+                });
+            }
+        });
+        dlg.show();
+        v.requestFocus();
+    }
+
+    private void pickAppForEss() {
+        final List<App> apps = new ArrayList<>(allApps);
+        final String[] names = new String[apps.size()];
+        for (int i = 0; i < apps.size(); i++) names[i] = apps.get(i).display();
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Escolha o app")
+                .setItems(names, new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int which) {
+                        String key = apps.get(which).key;
+                        if (essKeys().contains(key)) {
+                            Toast.makeText(MainActivity.this, "Já está nos Essenciais", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        addEssKey(key);
+                    }
+                }).show();
+    }
+
+    private void editLink(final int pos, final Ess e) {
+        linkForm("Editar atalho", "Nome", "Link", e.name, e.url,
+                android.text.InputType.TYPE_TEXT_VARIATION_URI, new LinkDone() {
+                    @Override public void done(String name, String value) {
+                        String url = fixUrl(value);
+                        replaceEssKey(pos, webKey(url, name.isEmpty() ? hostName(url) : name, e.pkg));
+                    }
+                });
+    }
+
+    /** Escolher qual app abre o link (ex.: sempre no Brave). */
+    private void chooseOpener(final int pos, final Ess e) {
+        final List<String> pkgs = new ArrayList<>();
+        final List<String> names = new ArrayList<>();
+        pkgs.add(null);
+        names.add("Padrão do celular");
+        for (String w : new String[]{"brave", "chrome", "firefox", "opera", "edge", "navegador", "browser",
+                "youtube", "whatsapp", "maps"}) {
+            for (App a : allApps) {
+                String p = a.component.getPackageName();
+                if (!a.clone && a.search.contains(w) && !pkgs.contains(p)) {
+                    pkgs.add(p);
+                    names.add(a.label);
+                }
+            }
+        }
+        for (App a : allApps) {
+            String p = a.component.getPackageName();
+            if (!a.clone && !pkgs.contains(p)) {
+                pkgs.add(p);
+                names.add(a.label);
+            }
+        }
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Abrir \"" + e.name + "\" com")
+                .setItems(names.toArray(new String[0]), new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int which) {
+                        replaceEssKey(pos, webKey(e.url, e.name, pkgs.get(which)));
+                    }
+                }).show();
+    }
+
+    private void openLink(Ess e) {
+        Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(e.url));
+        if (e.pkg != null) {
+            Intent withApp = new Intent(i).setPackage(e.pkg);
+            if (startQuiet(withApp)) return;
+        }
+        tryStart(i);
     }
 
     private App findApp(String keyword) {
@@ -2189,7 +2435,7 @@ public class MainActivity extends Activity {
                     tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
                     tv.setTextColor(FAINT);
                 }
-                tv.setText("+  Adicionar atalho");
+                tv.setText("+  Adicionar atalho  (app, site, WhatsApp…)");
             }
             return tv;
         }

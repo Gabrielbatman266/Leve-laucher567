@@ -1,10 +1,12 @@
-# Leve Launcher v10
+# Leve Launcher v11
 
 Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no nome da aba.
 
 - **Essenciais**: seus atalhos (YMusic, Nyx, Instagram e clones, Threads, Google Flow,
   Claude, ChatGPT, Brave, TikTok já entram sozinhos se estiverem instalados) + controle de música.
-  Toque longo: mover para cima/baixo ou remover. "+ Adicionar atalho" leva para a aba Todos.
+  "+ Adicionar atalho" cria atalhos de: app instalado, site/link, conversa do WhatsApp (número),
+  pesquisa no YouTube, pesquisa no Google ou rota no Maps.
+  Toque longo: mover, editar nome e link, escolher com qual app o link abre (ex.: Brave) ou remover.
 - **Barra fixa embaixo**: Telefone, Mensagens, Câmera, Calculadora e Galeria.
   Segure o dedo num botão para trocar por qualquer outro app.
 - **Novos**: apps baixados nos últimos 30 dias, separados em Hoje, Ontem, Esta semana e Este mês.

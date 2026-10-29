@@ -10,8 +10,8 @@ android {
         applicationId 'com.leve.launcher'
         minSdk 21
         targetSdk 34
-        versionCode 12
-        versionName '12.0'
+        versionCode 13
+        versionName '13.0'
     }
 
     // Chave fixa: assim as próximas versões instalam por cima, sem desinstalar.
