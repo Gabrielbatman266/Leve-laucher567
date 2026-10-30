@@ -96,15 +96,28 @@ import java.util.Map;
 public class MainActivity extends Activity {
 
     // ---------- Cores claras, bem nítidas ----------
-    static final int BG = 0xFFF3F6FC;
-    static final int TILE = 0xFFFFFFFF;
-    static final int TILE_LINE = 0xFFE1E7F2;
-    static final int TEXT = 0xFF111827;
-    static final int MUTED = 0xFF4B5567;
-    static final int ACCENT = 0xFF1E5BD8;
-    static final int ON_ACCENT = 0xFFFFFFFF;
-    static final int GOOD = 0xFF13803B;
-    static final int WARN = 0xFFC62828;
+    // Cores do tema escolhido (AMOLED é o padrão; Claro é opcional)
+    static boolean amoled = true;
+    static int BG, TILE, TILE_LINE, TEXT, MUTED, ACCENT, ON_ACCENT, GOOD, WARN, ADD_FILL;
+
+    /** AMOLED: preto puro (pixel apagado = economia de bateria) e só bordas finas. */
+    static void applyTheme(boolean dark) {
+        amoled = dark;
+        if (dark) {
+            BG = 0xFF000000; TILE = 0xFF000000; TILE_LINE = 0xFF2E2E34;
+            TEXT = 0xFFFFFFFF; MUTED = 0xFFB4B8C2; ACCENT = 0xFF4D8DFF; ON_ACCENT = 0xFF000000;
+            GOOD = 0xFF5BD27A; WARN = 0xFFFF7A70; ADD_FILL = 0xFF000000;
+        } else {
+            BG = 0xFFF3F6FC; TILE = 0xFFFFFFFF; TILE_LINE = 0xFFE1E7F2;
+            TEXT = 0xFF111827; MUTED = 0xFF4B5567; ACCENT = 0xFF1E5BD8; ON_ACCENT = 0xFFFFFFFF;
+            GOOD = 0xFF13803B; WARN = 0xFFC62828; ADD_FILL = 0xFFEAF1FF;
+        }
+    }
+
+    static int dialogTheme() {
+        return amoled ? android.R.style.Theme_DeviceDefault_Dialog_Alert
+                : android.R.style.Theme_DeviceDefault_Light_Dialog_Alert;
+    }
 
     private static final int REQ_HOME = 7, REQ_LOCATION = 8;
     private static final long WEATHER_EVERY_MS = 30 * 60 * 1000L;
@@ -165,6 +178,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences("pro", MODE_PRIVATE);
         scale = SCALES[Math.max(0, Math.min(2, prefs.getInt("letra", 1)))];
+        applyTheme(prefs.getBoolean("amoled", true));
         launcherApps = (LauncherApps) getSystemService(LAUNCHER_APPS_SERVICE);
         userManager = (UserManager) getSystemService(USER_SERVICE);
 
@@ -264,7 +278,7 @@ public class MainActivity extends Activity {
     /** Cartão branco com borda fina e sombra suave. */
     private void card(View v, float radius) {
         v.setBackground(box(TILE, TILE_LINE, radius));
-        v.setElevation(dp(3));
+        if (!amoled) v.setElevation(dp(3));
     }
 
     /** Texto com tamanho já ajustado ao "Tamanho da letra" escolhido. */
@@ -284,12 +298,19 @@ public class MainActivity extends Activity {
 
     private View buildUi() {
         FrameLayout frame = new FrameLayout(this);
-        frame.setBackground(new SkyDrawable());
-        getWindow().setStatusBarColor(0xFFDDE8FF);
-        getWindow().setNavigationBarColor(0xFFFFFFFF);
-        int flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-        if (Build.VERSION.SDK_INT >= 26) flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
-        getWindow().getDecorView().setSystemUiVisibility(flags);
+        if (amoled) {
+            frame.setBackgroundColor(0xFF000000);
+            getWindow().setStatusBarColor(0xFF000000);
+            getWindow().setNavigationBarColor(0xFF000000);
+            getWindow().getDecorView().setSystemUiVisibility(0);
+        } else {
+            frame.setBackground(new SkyDrawable());
+            getWindow().setStatusBarColor(0xFFDDE8FF);
+            getWindow().setNavigationBarColor(0xFFFFFFFF);
+            int flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (Build.VERSION.SDK_INT >= 26) flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            getWindow().getDecorView().setSystemUiVisibility(flags);
+        }
         homePage = buildHome();
         allPage = buildAllApps();
         frame.addView(homePage, new FrameLayout.LayoutParams(MATCH, MATCH));
@@ -436,12 +457,24 @@ public class MainActivity extends Activity {
         TextView upd = smallButton("⟳  Atualizar o launcher  (v" + Updater.installedVersion(this) + ")");
         upd.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
-                new Updater(MainActivity.this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert).check();
+                new Updater(MainActivity.this, dialogTheme()).check();
             }
         });
         LinearLayout.LayoutParams up = lp(MATCH, WRAP);
         up.topMargin = dp(2);
         c.addView(upd, up);
+
+        TextView themeBtn = smallButton(amoled ? "◐  Tema: AMOLED (economia)  ·  trocar para Claro"
+                : "◐  Tema: Claro  ·  trocar para AMOLED");
+        themeBtn.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                prefs.edit().putBoolean("amoled", !amoled).apply();
+                recreate();
+            }
+        });
+        LinearLayout.LayoutParams tbp = lp(MATCH, WRAP);
+        tbp.topMargin = dp(10);
+        c.addView(themeBtn, tbp);
 
         TextView tip = text(14, MUTED);
         tip.setText("Dica: toque em \"+ Adicionar aplicativo\" para escolher seus apps. "
@@ -548,7 +581,7 @@ public class MainActivity extends Activity {
         LinearLayout add = new LinearLayout(this);
         add.setOrientation(LinearLayout.VERTICAL);
         add.setGravity(Gravity.CENTER);
-        GradientDrawable dash = box(0xFFEAF1FF, 0, 20);
+        GradientDrawable dash = box(ADD_FILL, 0, 20);
         dash.setStroke(dp(2), ACCENT, dp(8), dp(6));
         add.setBackground(dash);
         add.setPadding(dp(8), dp(14), dp(8), dp(14));
@@ -581,7 +614,7 @@ public class MainActivity extends Activity {
             names[i] = allApps.get(i).display();
             checked[i] = current.contains(allApps.get(i).key);
         }
-        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+        new AlertDialog.Builder(this, dialogTheme())
                 .setTitle("Marque os aplicativos da tela inicial")
                 .setMultiChoiceItems(names, checked, new DialogInterface.OnMultiChoiceClickListener() {
                     @Override public void onClick(DialogInterface d, int which, boolean isChecked) {
@@ -618,7 +651,7 @@ public class MainActivity extends Activity {
         if (pos < keys.size() - 1) opts.add("Mover para frente");
         opts.add("Tirar da tela inicial");
         opts.add("Informações do app");
-        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+        new AlertDialog.Builder(this, dialogTheme())
                 .setTitle(a.display())
                 .setItems(opts.toArray(new String[0]), new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface d, int which) {
@@ -723,7 +756,7 @@ public class MainActivity extends Activity {
                 onHome ? "Tirar da tela inicial" : "Colocar na tela inicial",
                 "Informações do app / desinstalar"
         };
-        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+        new AlertDialog.Builder(this, dialogTheme())
                 .setTitle(a.display())
                 .setItems(opts, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface d, int which) {
@@ -1011,7 +1044,7 @@ public class MainActivity extends Activity {
                 + "•  Deixe a tela desligada\n"
                 + "•  Ligue o modo avião se não precisar receber ligações\n"
                 + "•  Tire a capinha se o celular esquentar";
-        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+        new AlertDialog.Builder(this, dialogTheme())
                 .setTitle("⚡  Carregar melhor")
                 .setMessage(msg)
                 .setPositiveButton("Ligar modo avião", new DialogInterface.OnClickListener() {
@@ -1048,7 +1081,7 @@ public class MainActivity extends Activity {
     private void toggleDnd() {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (!nm.isNotificationPolicyAccessGranted()) {
-            new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+            new AlertDialog.Builder(this, dialogTheme())
                     .setTitle("🔕  Não perturbe")
                     .setMessage("Para ligar e desligar o Não perturbe com um toque, permita o acesso "
                             + "para \"Launcher Leve Profissional\" na próxima tela. Só precisa fazer isso uma vez.")
@@ -1225,7 +1258,7 @@ public class MainActivity extends Activity {
 
     private void chooseTextSize() {
         int current = prefs.getInt("letra", 1);
-        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+        new AlertDialog.Builder(this, dialogTheme())
                 .setTitle("Tamanho da letra")
                 .setSingleChoiceItems(SCALE_NAMES, current, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface d, int which) {

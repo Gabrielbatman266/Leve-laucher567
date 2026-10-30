@@ -104,8 +104,8 @@ public class MainActivity extends Activity {
     static final int MUTED = 0xFF7C8199;
     static final int FAINT = 0xFF3A3E52;
     static final int ACCENT = 0xFF9DB0FF;
-    static final int SURFACE = 0xFF0B0C14;
-    static final int LINE = 0xFF1C1F2E;
+    static final int SURFACE = 0xFF000000; // preto puro: pixel apagado na tela AMOLED
+    static final int LINE = 0xFF22263A;
 
     private static final int MAX_FREQUENT = 12;
     private static final int REQ_HOME = 7;

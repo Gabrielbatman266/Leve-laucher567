@@ -29,7 +29,7 @@ Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no n
 
 # Launcher Leve Profissional (pasta `profissional/`)
 
-Tela inicial clara (tons de branco, fundo azul-claro suave), com letras e botões grandes, fácil para qualquer pessoa.
+Tela inicial com letras e botões grandes, fácil para qualquer pessoa. Tema **AMOLED** (preto puro, economiza bateria) por padrão, com opção de tema **Claro** (tons de branco, fundo azul-claro suave).
 
 - Relógio enorme, dia da semana, tempo (temperatura, máxima e mínima) e bateria.
 - Atalhos: **Limpar celular** (limpador da Xiaomi), **Não perturbe** (liga/desliga com um toque),
