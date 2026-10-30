@@ -433,6 +433,16 @@ public class MainActivity extends Activity {
         });
         r3.addView(home, half(false));
 
+        TextView upd = smallButton("⟳  Atualizar o launcher  (v" + Updater.installedVersion(this) + ")");
+        upd.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                new Updater(MainActivity.this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert).check();
+            }
+        });
+        LinearLayout.LayoutParams up = lp(MATCH, WRAP);
+        up.topMargin = dp(2);
+        c.addView(upd, up);
+
         TextView tip = text(14, MUTED);
         tip.setText("Dica: toque em \"+ Adicionar aplicativo\" para escolher seus apps. "
                 + "Segure o dedo num app para tirar ou mudar de lugar.");

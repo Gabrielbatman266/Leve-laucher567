@@ -78,7 +78,7 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * Leve Launcher v11 — tela inicial minimalista com tema espacial.
+ * Leve Launcher v12 — tela inicial minimalista com tema espacial.
  *
  * Abas (toque no nome ou deslize para os lados):
  *   Essenciais  – seus atalhos organizados + controle de música
@@ -925,6 +925,12 @@ public class MainActivity extends Activity {
             @Override public void onClick(View v) { chooseMusicApp(); }
         });
         updateMusicSettings();
+        TextView upd = row(c, "Atualizar o launcher");
+        upd.setText("v" + Updater.installedVersion(this) + "  ·  Verificar ›");
+        upd.setTextColor(ACCENT);
+        ((View) upd.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { updater.check(); }
+        });
         TextView change = row(c, "Tela inicial padrão");
         change.setText("Trocar ›");
         ((View) change.getParent()).setOnClickListener(new View.OnClickListener() {
@@ -1649,6 +1655,7 @@ public class MainActivity extends Activity {
     // ---------- Música ----------
 
     private TextView musicAppValue;
+    private final Updater updater = new Updater(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
 
     /**
      * Ler o player ativo exige a permissão de notificações, que faz o Play Protect

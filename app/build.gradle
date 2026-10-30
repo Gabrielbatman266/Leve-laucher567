@@ -10,8 +10,9 @@ android {
         applicationId 'com.leve.launcher'
         minSdk 21
         targetSdk 34
-        versionCode 13
-        versionName '13.0'
+        // Número da compilação do GitHub = número da Release (v16, v17...)
+        versionCode((System.getenv('GITHUB_RUN_NUMBER') ?: '1') as int)
+        versionName 'v' + (System.getenv('GITHUB_RUN_NUMBER') ?: 'dev')
     }
 
     // Chave fixa: assim as próximas versões instalam por cima, sem desinstalar.
