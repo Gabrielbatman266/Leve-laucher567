@@ -100,12 +100,12 @@ public class MainActivity extends Activity {
 
     // ---------- Cores ----------
     static final int BG = 0xFF000000;
-    static final int TEXT = 0xFFEDEFF7;
-    static final int MUTED = 0xFF7C8199;
-    static final int FAINT = 0xFF3A3E52;
-    static final int ACCENT = 0xFF9DB0FF;
+    static final int TEXT = 0xFFFFFFFF;
+    static final int MUTED = 0xFFC2C7D6;
+    static final int FAINT = 0xFF8A90A8;
+    static final int ACCENT = 0xFFB4C4FF;
     static final int SURFACE = 0xFF000000; // preto puro: pixel apagado na tela AMOLED
-    static final int LINE = 0xFF22263A;
+    static final int LINE = 0xFF555C7A;
 
     private static final int MAX_FREQUENT = 12;
     private static final int REQ_HOME = 7;
@@ -326,7 +326,7 @@ public class MainActivity extends Activity {
         GradientDrawable g = new GradientDrawable();
         g.setColor(fill);
         g.setCornerRadius(dp(22));
-        if (stroke != 0) g.setStroke(dp(1), stroke);
+        if (stroke != 0) g.setStroke(Math.max(2, dp(1.5f)), stroke);
         return g;
     }
 
@@ -358,7 +358,7 @@ public class MainActivity extends Activity {
         // --- Aviso de tela inicial padrão ---
         defaultBanner = text(14, ACCENT);
         defaultBanner.setText("✦  Toque para tornar o Leve sua tela inicial");
-        defaultBanner.setBackground(pill(0xFF0D1024, 0xFF2B3566));
+        defaultBanner.setBackground(pill(0xFF000000, ACCENT));
         defaultBanner.setPadding(dp(16), dp(10), dp(16), dp(10));
         defaultBanner.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { requestDefaultHome(); }
@@ -672,7 +672,7 @@ public class MainActivity extends Activity {
         b.setText(label);
         b.setGravity(Gravity.CENTER);
         b.setSingleLine(true);
-        b.setBackground(pill(SURFACE, 0xFF22263A));
+        b.setBackground(pill(SURFACE, LINE));
         b.setPadding(dp(6), dp(11), dp(6), dp(11));
         b.setOnClickListener(click);
         return b;
@@ -2021,7 +2021,7 @@ public class MainActivity extends Activity {
 
         usagePerm = text(14, ACCENT);
         usagePerm.setText("✦  Toque para liberar o \"Acesso ao uso\" para o Leve Launcher");
-        usagePerm.setBackground(pill(0xFF0D1024, 0xFF2B3566));
+        usagePerm.setBackground(pill(0xFF000000, ACCENT));
         usagePerm.setPadding(dp(16), dp(10), dp(16), dp(10));
         usagePerm.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -2459,7 +2459,7 @@ public class MainActivity extends Activity {
 
         BarView(Context c) {
             super(c);
-            bg.setColor(0xFF1A1D2B);
+            bg.setColor(0xFF3A3F55);
             fg.setColor(ACCENT);
         }
 
