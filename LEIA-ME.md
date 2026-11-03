@@ -43,3 +43,20 @@ Tela inicial com letras e botões grandes, fácil para qualquer pessoa. Tema **A
 - **Todos os aplicativos**: lista grande com busca. Segure o dedo num app para colocar na tela inicial.
 - **Tamanho da letra**: Normal, Grande ou Muito grande.
 - **Atualizar o launcher**: botão no fim da tela; baixa a versão nova do GitHub e abre o instalador.
+
+---
+
+# Leve Home (pasta `home/`)
+
+Launcher bonito no estilo dos celulares novos (iPhone / HyperOS), mas leve.
+
+- **Tela inicial em páginas**, com relógio grande, pontinhos de página, botão Pesquisar e **dock**.
+- **Deslize para cima**: gaveta com todos os apps, busca e "Sugestões" (os mais usados).
+- **Deslize para baixo**: abre as notificações.
+- **Segure num ícone**: mover, colocar/tirar do dock, informações ou desinstalar.
+- **Segure num espaço vazio**: painel **Personalizar** — fundo (papel de parede do celular,
+  preto AMOLED, Aurora, Pôr do sol, Oceano, Grafite), formato dos ícones (iPhone, Xiaomi,
+  círculo, original), tamanho dos ícones, 4 ou 5 colunas, nomes, relógio, animações,
+  tela inicial padrão e **Atualizar**.
+- Leve: ícones desenhados uma vez e guardados, gaveta que reaproveita células, sem desfoque,
+  animações só de posição e transparência (pausam no modo economia).

@@ -34,6 +34,7 @@ jobs:
         run: |
           cp app/build/outputs/apk/release/app-release.apk LeveLauncher.apk
           cp profissional/build/outputs/apk/release/profissional-release.apk LauncherLeveProfissional.apk
-          gh release create "v${{ github.run_number }}" LeveLauncher.apk LauncherLeveProfissional.apk \
+          cp home/build/outputs/apk/release/home-release.apk LeveHome.apk
+          gh release create "v${{ github.run_number }}" LeveLauncher.apk LauncherLeveProfissional.apk LeveHome.apk \
             --title "Leve Launcher v${{ github.run_number }}" \
-            --notes "LeveLauncher.apk = launcher minimalista espacial. LauncherLeveProfissional.apk = launcher com letras grandes e fácil de usar. Os dois instalam por cima da versão anterior."
+            --notes "LeveLauncher.apk = launcher minimalista espacial. LauncherLeveProfissional.apk = launcher com letras grandes e fácil de usar. LeveHome.apk = launcher bonito estilo celulares novos, com páginas, dock e gaveta. Todos instalam por cima da versão anterior."

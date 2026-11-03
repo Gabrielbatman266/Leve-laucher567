@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.leve.home'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.leve.home'
+        minSdk 23
+        targetSdk 34
+        // Número da compilação do GitHub = número da Release (v16, v17...)
+        versionCode((System.getenv('GITHUB_RUN_NUMBER') ?: '1') as int)
+        versionName 'v' + (System.getenv('GITHUB_RUN_NUMBER') ?: 'dev')
+    }
+
+    signingConfigs {
+        leve {
+            storeFile file('../app/leve.keystore')
+            storePassword 'leve123456'
+            keyAlias 'leve'
+            keyPassword 'leve123456'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+            signingConfig signingConfigs.leve
+        }
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
