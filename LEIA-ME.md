@@ -1,4 +1,4 @@
-# Leve Launcher v12
+# Leve Launcher v13
 
 Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no nome da aba.
 
@@ -19,7 +19,10 @@ Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no n
 - **Bateria**: nível, consumo agora, tempo restante, temperatura e os apps que mais
   ficaram ativos hoje. Toque num app para fechar em 2º plano ou restringir a bateria dele.
   Precisa liberar "Acesso ao uso" uma vez (o próprio launcher leva até a tela).
-- **Sistema**: RAM, CPU, temperatura, armazenamento. Liga/desliga a animação.
+- **Sistema**: RAM, CPU, temperatura, armazenamento. Liga/desliga as animações.
+  **Tema**: Espaço, Aurora, Sakura, Âmbar, Neon ou Grafite (fundo sempre preto AMOLED).
+  **Animações da interface**: abas deslizando, risquinho que acompanha a aba, listas entrando
+  em cascata e botões que afundam ao tocar. Leves (só GPU) e pausam no modo economia.
   **Atualizar o launcher**: confere a versão nova no GitHub, baixa e abre o instalador.
 - Linha de RAM / CPU / bateria embaixo da data (toque nela para abrir Sistema).
 - Animação do fundo: estrelas piscando devagar e estrela cadente rara. Para sozinha

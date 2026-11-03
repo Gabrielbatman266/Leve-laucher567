@@ -78,7 +78,7 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * Leve Launcher v12 — tela inicial minimalista com tema espacial.
+ * Leve Launcher v13 — tela inicial minimalista com tema espacial.
  *
  * Abas (toque no nome ou deslize para os lados):
  *   Essenciais  – seus atalhos organizados + controle de música
@@ -99,13 +99,29 @@ import java.util.Random;
 public class MainActivity extends Activity {
 
     // ---------- Cores ----------
+    // Fundo e superfícies sempre em preto puro: pixel apagado na tela AMOLED.
     static final int BG = 0xFF000000;
     static final int TEXT = 0xFFFFFFFF;
-    static final int MUTED = 0xFFC2C7D6;
-    static final int FAINT = 0xFF8A90A8;
-    static final int ACCENT = 0xFFB4C4FF;
-    static final int SURFACE = 0xFF000000; // preto puro: pixel apagado na tela AMOLED
-    static final int LINE = 0xFF555C7A;
+    static final int SURFACE = 0xFF000000;
+    // Estas mudam conforme o tema escolhido em Sistema → Tema
+    static int MUTED, FAINT, ACCENT, LINE, STAR_R, STAR_G, STAR_B;
+
+    static final String[] THEME_NAMES = {"Espaço", "Aurora", "Sakura", "Âmbar", "Neon", "Grafite"};
+    private static final int[][] THEMES = {
+            // ACCENT,    LINE,       MUTED,      FAINT,      cor das estrelas (R, G, B)
+            {0xFFB4C4FF, 0xFF555C7A, 0xFFC2C7D6, 0xFF8A90A8, 170, 190, 255},
+            {0xFF7CF2C8, 0xFF3F6B5E, 0xFFBFD8CF, 0xFF7FA095, 140, 255, 210},
+            {0xFFFFA8CF, 0xFF7A4B60, 0xFFE2C6D2, 0xFFA88A98, 255, 170, 210},
+            {0xFFFFC870, 0xFF7A6240, 0xFFE3D3BC, 0xFFA8977E, 255, 210, 140},
+            {0xFF6FF6FF, 0xFF2F6C78, 0xFFBFE9EE, 0xFF7FAFB5, 120, 240, 255},
+            {0xFFFFFFFF, 0xFF5A5A5A, 0xFFC8C8C8, 0xFF8E8E8E, 225, 225, 225},
+    };
+
+    static void applyTheme(int t) {
+        int[] c = THEMES[Math.max(0, Math.min(THEMES.length - 1, t))];
+        ACCENT = c[0]; LINE = c[1]; MUTED = c[2]; FAINT = c[3];
+        STAR_R = c[4]; STAR_G = c[5]; STAR_B = c[6];
+    }
 
     private static final int MAX_FREQUENT = 12;
     private static final int REQ_HOME = 7;
@@ -221,6 +237,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences("leve", MODE_PRIVATE);
+        applyTheme(prefs.getInt("tema", 0));
         launcherApps = (LauncherApps) getSystemService(LAUNCHER_APPS_SERVICE);
         userManager = (UserManager) getSystemService(USER_SERVICE);
         loadUsage();
@@ -419,7 +436,13 @@ public class MainActivity extends Activity {
         tabScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         LinearLayout tabs = new LinearLayout(this);
         tabs.setOrientation(LinearLayout.HORIZONTAL);
-        tabScroll.addView(tabs);
+        FrameLayout tabFrame = new FrameLayout(this);
+        tabFrame.addView(tabs);
+        // Risquinho embaixo da aba escolhida (desliza ao trocar de aba)
+        tabIndicator = new View(this);
+        tabIndicator.setBackground(pill(ACCENT, 0));
+        tabFrame.addView(tabIndicator, new FrameLayout.LayoutParams(0, dp(2.5f), Gravity.BOTTOM));
+        tabScroll.addView(tabFrame);
         LinearLayout.LayoutParams tp = lp(MATCH, WRAP);
         tp.topMargin = dp(20);
         root.addView(tabScroll, tp);
@@ -593,6 +616,7 @@ public class MainActivity extends Activity {
         b.setOnLongClickListener(new View.OnLongClickListener() {
             @Override public boolean onLongClick(View v) { chooseDockApp(i); return true; }
         });
+        pressable(b);
         return b;
     }
 
@@ -675,6 +699,7 @@ public class MainActivity extends Activity {
         b.setBackground(pill(SURFACE, LINE));
         b.setPadding(dp(6), dp(11), dp(6), dp(11));
         b.setOnClickListener(click);
+        pressable(b);
         return b;
     }
 
@@ -733,6 +758,7 @@ public class MainActivity extends Activity {
         essList = makeList();
         essAdapter = new EssAdapter();
         essList.setAdapter(essAdapter);
+        essList.setLayoutAnimation(listEntrance());
         essList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override public void onItemClick(AdapterView<?> p, View v, int pos, long id) {
                 if (pos >= essItems.size()) {
@@ -834,6 +860,7 @@ public class MainActivity extends Activity {
             LinearLayout.LayoutParams cp = lp(WRAP, WRAP);
             cp.rightMargin = dp(8);
             chips.addView(c, cp);
+            pressable(c);
             sortChips[i] = c;
         }
         page.addView(sortBar, lp(MATCH, WRAP));
@@ -861,6 +888,7 @@ public class MainActivity extends Activity {
         list.setFastScrollEnabled(true);
         adapter = new RowAdapter();
         list.setAdapter(adapter);
+        list.setLayoutAnimation(listEntrance());
         list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override public void onItemClick(AdapterView<?> p, View v, int pos, long id) {
                 Object o = rows.get(pos);
@@ -913,6 +941,19 @@ public class MainActivity extends Activity {
         android.setText(Build.VERSION.RELEASE);
 
         section(c, "LAUNCHER");
+        themeValue = row(c, "Tema");
+        themeValue.setText(THEME_NAMES[Math.max(0, Math.min(THEME_NAMES.length - 1, prefs.getInt("tema", 0)))] + " ›");
+        themeValue.setTextColor(ACCENT);
+        ((View) themeValue.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { chooseTheme(); }
+        });
+        uiAnimToggle = row(c, "Animações da interface");
+        ((View) uiAnimToggle.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                prefs.edit().putBoolean("anim_ui", !prefs.getBoolean("anim_ui", true)).apply();
+                updateAnimation();
+            }
+        });
         animToggle = row(c, "Animação do fundo");
         ((View) animToggle.getParent()).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -975,6 +1016,7 @@ public class MainActivity extends Activity {
 
     private void selectTab(int t) {
         if (t < 0 || t >= TABS || t == tab) return;
+        slideDir = t > tab ? 1 : -1;
         tab = t;
         hideKeyboard();
         if (searchBox.length() > 0) searchBox.setText("");
@@ -992,10 +1034,23 @@ public class MainActivity extends Activity {
             tabViews[i].setTextColor(i == tab ? TEXT : FAINT);
         }
         final TextView current = tabViews[tab];
+        final boolean animate = fade && uiAnim;
         tabScroll.post(new Runnable() {
             @Override public void run() {
                 int x = current.getLeft() - (tabScroll.getWidth() - current.getWidth()) / 2;
                 tabScroll.smoothScrollTo(Math.max(0, x), 0);
+                int w = Math.max(dp(12), current.getWidth() - dp(20));
+                ViewGroup.LayoutParams lpI = tabIndicator.getLayoutParams();
+                if (lpI.width != w) {
+                    lpI.width = w;
+                    tabIndicator.setLayoutParams(lpI);
+                }
+                if (animate) {
+                    tabIndicator.animate().translationX(current.getLeft()).setDuration(220)
+                            .setInterpolator(EASE).start();
+                } else {
+                    tabIndicator.setTranslationX(current.getLeft());
+                }
             }
         });
         View show = tab == TAB_ESS ? pageEss : tab == TAB_SYS ? pageSys : tab == TAB_BAT ? pageBat : pageApps;
@@ -1003,11 +1058,70 @@ public class MainActivity extends Activity {
         pageApps.setVisibility(show == pageApps ? View.VISIBLE : View.GONE);
         pageBat.setVisibility(show == pageBat ? View.VISIBLE : View.GONE);
         pageSys.setVisibility(show == pageSys ? View.VISIBLE : View.GONE);
-        if (fade) {
+        if (fade && uiAnim) {
+            // Desliza um pouquinho para o lado da aba e aparece (só propriedades da GPU, bem leve)
             show.setAlpha(0f);
-            show.animate().alpha(1f).setDuration(140).start();
+            show.setTranslationX(slideDir * dp(28));
+            show.animate().alpha(1f).translationX(0).setDuration(200).setInterpolator(EASE).start();
+            if (show == pageApps && list != null) list.scheduleLayoutAnimation();
+            if (show == pageEss && essList != null) essList.scheduleLayoutAnimation();
+        } else {
+            show.setAlpha(1f);
+            show.setTranslationX(0);
         }
         if (list != null) list.setSelection(0);
+    }
+
+    // ---------- Animações leves ----------
+    private static final android.view.animation.Interpolator EASE =
+            new android.view.animation.DecelerateInterpolator(1.6f);
+    private View tabIndicator;
+    private int slideDir = 1;
+    /** Animações de interface (desligam sozinhas no modo economia de bateria). */
+    private boolean uiAnim = true;
+
+    /** Itens da lista entram em cascata rápida (só os visíveis, ~200 ms). */
+    private android.view.animation.LayoutAnimationController listEntrance() {
+        android.view.animation.AnimationSet set = new android.view.animation.AnimationSet(true);
+        android.view.animation.AlphaAnimation a = new android.view.animation.AlphaAnimation(0f, 1f);
+        android.view.animation.TranslateAnimation tr = new android.view.animation.TranslateAnimation(0, 0, dp(10), 0);
+        set.addAnimation(a);
+        set.addAnimation(tr);
+        set.setDuration(180);
+        set.setInterpolator(EASE);
+        android.view.animation.LayoutAnimationController c = new android.view.animation.LayoutAnimationController(set, 0.08f);
+        c.setOrder(android.view.animation.LayoutAnimationController.ORDER_NORMAL);
+        return c;
+    }
+
+    /** Botão "afunda" um pouquinho ao tocar e volta ao soltar. */
+    private void pressable(View v) {
+        v.setOnTouchListener(new View.OnTouchListener() {
+            @Override public boolean onTouch(View view, MotionEvent e) {
+                if (!uiAnim) return false;
+                int a = e.getActionMasked();
+                if (a == MotionEvent.ACTION_DOWN) {
+                    view.animate().scaleX(0.94f).scaleY(0.94f).setDuration(70).start();
+                } else if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) {
+                    view.animate().scaleX(1f).scaleY(1f).setDuration(160).setInterpolator(EASE).start();
+                }
+                return false;
+            }
+        });
+    }
+
+    private void chooseTheme() {
+        int current = prefs.getInt("tema", 0);
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Tema (fundo sempre preto AMOLED)")
+                .setSingleChoiceItems(THEME_NAMES, current, new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int which) {
+                        d.dismiss();
+                        if (which == prefs.getInt("tema", 0)) return;
+                        prefs.edit().putInt("tema", which).apply();
+                        recreate();
+                    }
+                }).show();
     }
 
     // ================================================================
@@ -2250,10 +2364,17 @@ public class MainActivity extends Activity {
     // Animação do fundo
     // ================================================================
 
+    private TextView themeValue, uiAnimToggle;
+
     private void updateAnimation() {
         boolean wanted = prefs.getBoolean("anim", true);
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
         boolean saver = pm != null && pm.isPowerSaveMode();
+        boolean uiWanted = prefs.getBoolean("anim_ui", true);
+        uiAnim = uiWanted && !saver;
+        if (uiAnimToggle != null) {
+            uiAnimToggle.setText(!uiWanted ? "Desligadas" : saver ? "Pausadas (economia)" : "Ligadas");
+        }
         if (animToggle != null) {
             animToggle.setText(!wanted ? "Desligada" : saver ? "Pausada (economia)" : "Ligada");
         }
@@ -2517,8 +2638,8 @@ public class MainActivity extends Activity {
                 float big = r.nextFloat();
                 rs[i] = density * (i < TWINKLE ? 1.2f : big > 0.93f ? 1.2f : big > 0.6f ? 0.8f : 0.5f);
                 int alpha = 40 + r.nextInt(110);
-                boolean blue = r.nextFloat() > 0.7f;
-                colors[i] = Color.argb(alpha, blue ? 170 : 230, blue ? 190 : 230, 255);
+                boolean tinted = r.nextFloat() > 0.7f;
+                colors[i] = tinted ? Color.argb(alpha, STAR_R, STAR_G, STAR_B) : Color.argb(alpha, 230, 230, 240);
             }
         }
 
