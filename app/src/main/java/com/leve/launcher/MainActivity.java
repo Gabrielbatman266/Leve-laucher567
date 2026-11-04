@@ -78,7 +78,7 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * Leve Launcher v13 — tela inicial minimalista com tema espacial.
+ * Leve Launcher v14 — tela inicial minimalista com tema espacial.
  *
  * Abas (toque no nome ou deslize para os lados):
  *   Essenciais  – seus atalhos organizados + controle de música
@@ -238,13 +238,20 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences("leve", MODE_PRIVATE);
         applyTheme(prefs.getInt("tema", 0));
+        boolean firstDetect = !prefs.contains("fraco");
+        if (firstDetect) prefs.edit().putBoolean("fraco", isWeakPhone()).apply();
+        lite = prefs.getBoolean("fraco", false);
+        if (firstDetect && lite) {
+            Toast.makeText(this, "Modo celular fraco ligado automaticamente (Sistema → Launcher)",
+                    Toast.LENGTH_LONG).show();
+        }
         launcherApps = (LauncherApps) getSystemService(LAUNCHER_APPS_SERVICE);
         userManager = (UserManager) getSystemService(USER_SERVICE);
         loadUsage();
         sortMode = Math.max(0, Math.min(3, prefs.getInt("ordem", SORT_AZ)));
         setContentView(buildUi());
 
-        statsThread = new HandlerThread("leve-stats");
+        statsThread = new HandlerThread("leve-stats", Process.THREAD_PRIORITY_BACKGROUND);
         statsThread.start();
         statsHandler = new Handler(statsThread.getLooper());
 
@@ -364,7 +371,9 @@ public class MainActivity extends Activity {
     private View buildUi() {
         FrameLayout frame = new FrameLayout(this);
         frame.setBackgroundColor(BG);
+        getWindow().setBackgroundDrawable(null);
         stars = new StarsView(this);
+        if (lite) stars.setVisibility(View.GONE);
         frame.addView(stars, new FrameLayout.LayoutParams(MATCH, MATCH));
 
         LinearLayout root = new LinearLayout(this);
@@ -420,9 +429,15 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams qp = lp(MATCH, WRAP);
         qp.topMargin = dp(18);
         root.addView(quick, qp);
-        quick.addView(quickButton("◌  Limpar", new View.OnClickListener() {
-            @Override public void onClick(View v) { openCleaner(); }
-        }), quickParams(false));
+        TextView clean = quickButton("◌  Limpar", new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                if (hasXiaomiCleaner()) openCleaner(); else freeRam();
+            }
+        });
+        clean.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override public boolean onLongClick(View v) { freeRam(); return true; }
+        });
+        quick.addView(clean, quickParams(false));
         quick.addView(quickButton("⚙  Config", new View.OnClickListener() {
             @Override public void onClick(View v) { tryStart(new Intent(Settings.ACTION_SETTINGS)); }
         }), quickParams(false));
@@ -854,7 +869,7 @@ public class MainActivity extends Activity {
                     prefs.edit().putInt("ordem", mode).apply();
                     refreshRows();
                     list.setSelection(0);
-                    if (mode == SORT_SIZE && hasUsageAccess()) loadApps();
+                    if ((mode == SORT_SIZE && hasUsageAccess()) || (lite && mode != SORT_AZ && !metaLoaded)) loadApps();
                 }
             });
             LinearLayout.LayoutParams cp = lp(WRAP, WRAP);
@@ -941,6 +956,21 @@ public class MainActivity extends Activity {
         android.setText(Build.VERSION.RELEASE);
 
         section(c, "LAUNCHER");
+        liteToggle = row(c, "Modo celular fraco");
+        liteToggle.setTextColor(ACCENT);
+        ((View) liteToggle.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                prefs.edit().putBoolean("fraco", !lite).apply();
+                Toast.makeText(MainActivity.this, !lite ? "Modo celular fraco ligado" : "Modo celular fraco desligado",
+                        Toast.LENGTH_SHORT).show();
+                recreate();
+            }
+        });
+        TextView ramBtn = row(c, "Liberar memória (RAM)");
+        ramBtn.setText("Liberar ›");
+        ((View) ramBtn.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { freeRam(); }
+        });
         themeValue = row(c, "Tema");
         themeValue.setText(THEME_NAMES[Math.max(0, Math.min(THEME_NAMES.length - 1, prefs.getInt("tema", 0)))] + " ›");
         themeValue.setTextColor(ACCENT);
@@ -1018,6 +1048,7 @@ public class MainActivity extends Activity {
         if (t < 0 || t >= TABS || t == tab) return;
         slideDir = t > tab ? 1 : -1;
         tab = t;
+        if (lite && t == TAB_NEW && !metaLoaded) loadApps();
         hideKeyboard();
         if (searchBox.length() > 0) searchBox.setText("");
         showTab(true);
@@ -1130,8 +1161,12 @@ public class MainActivity extends Activity {
 
     private void loadApps() {
         final int gen = ++loadGeneration;
+        // No modo celular fraco, data/tamanho/categoria só são lidos quando alguma tela precisa
+        final boolean wantMeta = !lite || tab == TAB_NEW || sortMode != SORT_AZ;
+        final boolean wantFullSize = sortMode == SORT_SIZE;
         new Thread(new Runnable() {
             @Override public void run() {
+                Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
                 final List<App> result = new ArrayList<>();
                 String self = getPackageName();
                 UserHandle me = Process.myUserHandle();
@@ -1164,8 +1199,9 @@ public class MainActivity extends Activity {
                 }
                 PackageManager pmi = getPackageManager();
                 Map<String, Object[]> pkgInfo = new HashMap<>();
-                boolean fullSize = hasUsageAccess();
+                boolean fullSize = wantFullSize && hasUsageAccess();
                 for (App a : result) {
+                    if (!wantMeta) break;
                     String pkg = a.component.getPackageName();
                     Object[] inf = pkgInfo.get(pkg);
                     if (inf == null) {
@@ -1193,6 +1229,7 @@ public class MainActivity extends Activity {
                     a.cat = (String) inf[2];
                     a.game = (Boolean) inf[3];
                 }
+                metaLoaded = wantMeta;
                 if (fullSize && Build.VERSION.SDK_INT >= 26) {
                     // Tamanho completo (app + dados + cache), igual ao das Configurações
                     try {
@@ -1927,7 +1964,7 @@ public class MainActivity extends Activity {
                 lastUsageAt = SystemClock.uptimeMillis();
                 loadUsageRanking();
             }
-            ui.postDelayed(this, STATS_EVERY_MS);
+            ui.postDelayed(this, lite && tab != TAB_SYS && tab != TAB_BAT ? 10000 : STATS_EVERY_MS);
         }
     };
 
@@ -1961,8 +1998,8 @@ public class MainActivity extends Activity {
 
         // CPU: o Android não deixa apps lerem o uso real; estimamos pela
         // frequência atual de cada núcleo em relação à máxima.
-        int cores = Runtime.getRuntime().availableProcessors();
-        if (cpuMax == null) {
+        int cores = lite && tab != TAB_SYS ? 0 : Runtime.getRuntime().availableProcessors();
+        if (cpuMax == null && cores > 0) {
             cpuMax = new long[cores];
             for (int i = 0; i < cores; i++) {
                 cpuMax[i] = readLong("/sys/devices/system/cpu/cpu" + i + "/cpufreq/cpuinfo_max_freq");
@@ -1979,7 +2016,7 @@ public class MainActivity extends Activity {
         }
         if (n > 0) s.cpuPct = (int) Math.round(sum / n * 100);
 
-        s.cpuTemp = readCpuTemp();
+        if (!lite || tab == TAB_SYS) s.cpuTemp = readCpuTemp();
 
         Intent b;
         IntentFilter f = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
@@ -2072,7 +2109,7 @@ public class MainActivity extends Activity {
         int ramPct = s.ramTotal > 0 ? (int) Math.round(s.ramUsed * 100.0 / s.ramTotal) : -1;
         StringBuilder line = new StringBuilder();
         line.append("RAM ").append(ramPct >= 0 ? ramPct + "%" : "—");
-        line.append("  ·  CPU ").append(s.cpuPct >= 0 ? s.cpuPct + "%" : "—");
+        if (!lite) line.append("  ·  CPU ").append(s.cpuPct >= 0 ? s.cpuPct + "%" : "—");
         line.append("  ·  ").append(s.charging ? "⚡" : "Bat. ").append(s.batt >= 0 ? s.batt + "%" : "—");
         if (!Float.isNaN(s.battTemp)) line.append("  ·  ").append(Math.round(s.battTemp)).append("°C");
         statsLine.setText(line);
@@ -2371,14 +2408,15 @@ public class MainActivity extends Activity {
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
         boolean saver = pm != null && pm.isPowerSaveMode();
         boolean uiWanted = prefs.getBoolean("anim_ui", true);
-        uiAnim = uiWanted && !saver;
+        uiAnim = uiWanted && !saver && !lite;
         if (uiAnimToggle != null) {
             uiAnimToggle.setText(!uiWanted ? "Desligadas" : saver ? "Pausadas (economia)" : "Ligadas");
         }
         if (animToggle != null) {
             animToggle.setText(!wanted ? "Desligada" : saver ? "Pausada (economia)" : "Ligada");
         }
-        stars.setRunning(wanted && !saver && resumed);
+        if (liteToggle != null) liteToggle.setText(lite ? "Ligado" : "Desligado");
+        stars.setRunning(wanted && !saver && resumed && !lite);
     }
 
     // ================================================================
@@ -2402,6 +2440,74 @@ public class MainActivity extends Activity {
         for (Intent i : tries) if (startQuiet(i)) return;
         Toast.makeText(this, "Limpador da Xiaomi não encontrado", Toast.LENGTH_SHORT).show();
         tryStart(new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS));
+    }
+
+    // ---------- Modo celular fraco ----------
+
+    private volatile boolean lite;
+    private volatile boolean metaLoaded;
+    private TextView liteToggle;
+
+    /** Celular simples: o Android marca como "pouca RAM", tem até 3 GB ou até 4 núcleos. */
+    private boolean isWeakPhone() {
+        try {
+            ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+            if (am.isLowRamDevice()) return true;
+            ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
+            am.getMemoryInfo(mi);
+            if (mi.totalMem > 0 && mi.totalMem <= 3.3 * 1024 * 1024 * 1024) return true;
+        } catch (Exception ignored) { }
+        return Runtime.getRuntime().availableProcessors() <= 4;
+    }
+
+    private boolean hasXiaomiCleaner() {
+        PackageManager pm = getPackageManager();
+        return pm.getLaunchIntentForPackage("com.miui.cleanmaster") != null
+                || pm.getLaunchIntentForPackage("com.miui.securitycenter") != null;
+    }
+
+    /** Fecha os apps parados em segundo plano e mostra quanto de RAM sobrou livre. */
+    private void freeRam() {
+        final ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        final List<String> pkgs = new ArrayList<>();
+        for (App a : allApps) {
+            String p = a.component.getPackageName();
+            if (!pkgs.contains(p)) pkgs.add(p);
+        }
+        Toast.makeText(this, "Liberando memória…", Toast.LENGTH_SHORT).show();
+        new Thread(new Runnable() {
+            @Override public void run() {
+                Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+                ActivityManager.MemoryInfo before = new ActivityManager.MemoryInfo();
+                am.getMemoryInfo(before);
+                for (String p : pkgs) {
+                    try { am.killBackgroundProcesses(p); } catch (Exception ignored) { }
+                }
+                try { Thread.sleep(700); } catch (InterruptedException ignored) { }
+                final ActivityManager.MemoryInfo after = new ActivityManager.MemoryInfo();
+                am.getMemoryInfo(after);
+                final long freed = Math.max(0, after.availMem - before.availMem) / (1024 * 1024);
+                ui.post(new Runnable() {
+                    @Override public void run() {
+                        String free = String.format(BR, "%.1f GB", after.availMem / 1073741824.0);
+                        Toast.makeText(MainActivity.this,
+                                (freed > 0 ? "Liberados " + freed + " MB. " : "Memória já estava limpa. ")
+                                        + "Livre agora: " + free, Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        }).start();
+    }
+
+    /** Quando o Android pede memória de volta, o launcher solta o que não está na tela. */
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level >= TRIM_MEMORY_UI_HIDDEN && usageBox != null) usageBox.removeAllViews();
+        if (lite && level >= TRIM_MEMORY_UI_HIDDEN) {
+            cpuMax = null;
+            thermalPaths = null;
+        }
     }
 
     private void openBattery() {

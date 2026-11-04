@@ -1,4 +1,4 @@
-# Leve Launcher v13
+# Leve Launcher v14
 
 Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no nome da aba.
 
@@ -20,6 +20,11 @@ Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no n
   ficaram ativos hoje. Toque num app para fechar em 2º plano ou restringir a bateria dele.
   Precisa liberar "Acesso ao uso" uma vez (o próprio launcher leva até a tela).
 - **Sistema**: RAM, CPU, temperatura, armazenamento. Liga/desliga as animações.
+  **Modo celular fraco**: liga sozinho em celular simples (até 3 GB de RAM ou 4 núcleos).
+  Desliga estrelas e animações, mede RAM/bateria a cada 10 s (sem ler CPU), só lê data,
+  tamanho e categoria dos apps quando você abre Novos ou organiza por Categoria/Tamanho.
+  **Liberar memória**: fecha apps parados em 2º plano e mostra quanto ficou livre
+  (também no botão Limpar: toque em celulares sem limpador Xiaomi, ou segure em qualquer um).
   **Tema**: Espaço, Aurora, Sakura, Âmbar, Neon ou Grafite (fundo sempre preto AMOLED).
   **Animações da interface**: abas deslizando, risquinho que acompanha a aba, listas entrando
   em cascata e botões que afundam ao tocar. Leves (só GPU) e pausam no modo economia.
