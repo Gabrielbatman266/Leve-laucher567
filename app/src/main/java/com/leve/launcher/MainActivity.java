@@ -293,6 +293,7 @@ public class MainActivity extends Activity {
         resumed = true;
         lastUsageAt = 0;
         updateMusicSettings();
+        updatePostCard();
         defaultBanner.setVisibility(isDefaultHome() ? View.GONE : View.VISIBLE);
         ui.removeCallbacks(tick);
         ui.post(tick);
@@ -763,6 +764,34 @@ public class MainActivity extends Activity {
         player.addView(mediaButton("⏯", KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE));
         player.addView(mediaButton("⏭", KeyEvent.KEYCODE_MEDIA_NEXT));
 
+        // Post Leve: "Postar próximo" direto do launcher (só aparece com o app instalado)
+        postCard = new LinearLayout(this);
+        postCard.setOrientation(LinearLayout.HORIZONTAL);
+        postCard.setGravity(Gravity.CENTER_VERTICAL);
+        postCard.setBackground(pill(SURFACE, LINE));
+        postCard.setPadding(dp(16), dp(4), dp(6), dp(4));
+        LinearLayout.LayoutParams pcp = lp(MATCH, WRAP);
+        pcp.bottomMargin = dp(4);
+        page.addView(postCard, pcp);
+        postInfo = text(14, MUTED);
+        postInfo.setText("📸  Post Leve");
+        postInfo.setSingleLine(true);
+        postInfo.setPadding(0, dp(10), 0, dp(10));
+        postInfo.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { openPostLeve(); }
+        });
+        postCard.addView(postInfo, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        TextView postBtn = text(14, BG);
+        postBtn.setText("Postar ↗");
+        postBtn.setGravity(Gravity.CENTER);
+        postBtn.setPadding(dp(16), dp(8), dp(16), dp(8));
+        postBtn.setBackground(pill(ACCENT, ACCENT));
+        postBtn.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { postNext(); }
+        });
+        postCard.addView(postBtn, lp(WRAP, WRAP));
+        updatePostCard();
+
         essHint = text(14, MUTED);
         essHint.setText("Seus atalhos aparecem aqui.\nToque em \"+ Adicionar atalho\" para colocar apps, sites ou links.");
         essHint.setLineSpacing(dp(4), 1f);
@@ -793,6 +822,57 @@ public class MainActivity extends Activity {
         });
         page.addView(essList, new LinearLayout.LayoutParams(MATCH, 0, 1f));
         return page;
+    }
+
+    // ---------- Post Leve ----------
+    static final String POST_LEVE = "com.leve.analise";
+    private LinearLayout postCard;
+    private TextView postInfo;
+
+    private boolean hasPostLeve() {
+        try { getPackageManager().getPackageInfo(POST_LEVE, 0); return true; } catch (Exception e) { return false; }
+    }
+
+    /** Mostra quantas fotos estão prontas (o Post Leve informa por um provedor só de leitura). */
+    private void updatePostCard() {
+        if (postCard == null) return;
+        if (!hasPostLeve()) { postCard.setVisibility(View.GONE); return; }
+        postCard.setVisibility(View.VISIBLE);
+        new Thread(new Runnable() {
+            @Override public void run() {
+                String label = "📸  Post Leve";
+                try {
+                    android.database.Cursor c = getContentResolver().query(
+                            android.net.Uri.parse("content://com.leve.analise.status/fila"), null, null, null, null);
+                    if (c != null) {
+                        if (c.moveToFirst()) {
+                            int n = c.getInt(c.getColumnIndexOrThrow("prontas"));
+                            label = n > 0 ? "📸  " + n + " pronta" + (n > 1 ? "s" : "") + " pra postar" : "📸  Fila vazia";
+                        }
+                        c.close();
+                    }
+                } catch (Exception ignored) { }
+                final String l = label;
+                ui.post(new Runnable() { @Override public void run() { if (postInfo != null) postInfo.setText(l); } });
+            }
+        }).start();
+    }
+
+    /** Sorteia foto + legenda no Post Leve e já abre o Threads. */
+    private void postNext() {
+        try {
+            Intent i = new Intent("com.leve.analise.POSTAR_PROXIMO");
+            i.setPackage(POST_LEVE);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(i);
+        } catch (Exception e) {
+            Toast.makeText(this, "Atualize o Post Leve pra usar esse botão", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void openPostLeve() {
+        Intent i = getPackageManager().getLaunchIntentForPackage(POST_LEVE);
+        if (i != null) { i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(i); }
     }
 
     private TextView mediaButton(String symbol, final int keyCode) {
