@@ -862,7 +862,9 @@ public class MainActivity extends Activity {
                             int ip = c.getColumnIndex("produzindo");
                             int nv = iv >= 0 ? c.getInt(iv) : 0;
                             boolean prod = ip >= 0 && c.getInt(ip) == 1;
-                            label = "📸 " + n + "  ·  🎬 " + nv + (prod ? "  ·  🤖" : "");
+                            int ih = c.getColumnIndex("hoje"), im = c.getColumnIndex("meta");
+                            int meta = im >= 0 ? c.getInt(im) : 0, hoje = ih >= 0 ? c.getInt(ih) : 0;
+                            label = "📸 " + n + "  ·  🎬 " + nv + (meta > 0 ? "  ·  hoje " + hoje + "/" + meta : "") + (prod ? "  ·  🤖" : "");
                         }
                         c.close();
                     }
