@@ -781,15 +781,26 @@ public class MainActivity extends Activity {
             @Override public void onClick(View v) { openPostLeve(); }
         });
         postCard.addView(postInfo, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        TextView postBtn = text(14, BG);
-        postBtn.setText("Postar ↗");
-        postBtn.setGravity(Gravity.CENTER);
-        postBtn.setPadding(dp(16), dp(8), dp(16), dp(8));
-        postBtn.setBackground(pill(ACCENT, ACCENT));
-        postBtn.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { postNext(); }
+        TextView photoBtn = text(14, TEXT);
+        photoBtn.setText("📸 Foto");
+        photoBtn.setGravity(Gravity.CENTER);
+        photoBtn.setPadding(dp(12), dp(8), dp(12), dp(8));
+        photoBtn.setBackground(pill(SURFACE, LINE));
+        photoBtn.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { postNext(false); }
         });
-        postCard.addView(postBtn, lp(WRAP, WRAP));
+        LinearLayout.LayoutParams pbl = lp(WRAP, WRAP);
+        pbl.rightMargin = dp(6);
+        postCard.addView(photoBtn, pbl);
+        TextView videoBtn = text(14, BG);
+        videoBtn.setText("🎬 Vídeo");
+        videoBtn.setGravity(Gravity.CENTER);
+        videoBtn.setPadding(dp(12), dp(8), dp(12), dp(8));
+        videoBtn.setBackground(pill(ACCENT, ACCENT));
+        videoBtn.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { postNext(true); }
+        });
+        postCard.addView(videoBtn, lp(WRAP, WRAP));
         updatePostCard();
 
         essHint = text(14, MUTED);
@@ -847,7 +858,11 @@ public class MainActivity extends Activity {
                     if (c != null) {
                         if (c.moveToFirst()) {
                             int n = c.getInt(c.getColumnIndexOrThrow("prontas"));
-                            label = n > 0 ? "📸  " + n + " pronta" + (n > 1 ? "s" : "") + " pra postar" : "📸  Fila vazia";
+                            int iv = c.getColumnIndex("videos");
+                            int ip = c.getColumnIndex("produzindo");
+                            int nv = iv >= 0 ? c.getInt(iv) : 0;
+                            boolean prod = ip >= 0 && c.getInt(ip) == 1;
+                            label = "📸 " + n + "  ·  🎬 " + nv + (prod ? "  ·  🤖" : "");
                         }
                         c.close();
                     }
@@ -858,10 +873,10 @@ public class MainActivity extends Activity {
         }).start();
     }
 
-    /** Sorteia foto + legenda no Post Leve e já abre o Threads. */
-    private void postNext() {
+    /** Foto: sorteia foto + legenda e abre o Threads. Vídeo: sorteia vídeo pronto + legenda e abre o Reels. */
+    private void postNext(boolean video) {
         try {
-            Intent i = new Intent("com.leve.analise.POSTAR_PROXIMO");
+            Intent i = new Intent(video ? "com.leve.analise.POSTAR_VIDEO" : "com.leve.analise.POSTAR_PROXIMO");
             i.setPackage(POST_LEVE);
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(i);
