@@ -1,4 +1,4 @@
-# Leve Launcher v14
+# Leve Launcher v15
 
 Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no nome da aba.
 
@@ -25,7 +25,12 @@ Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no n
   tamanho e categoria dos apps quando você abre Novos ou organiza por Categoria/Tamanho.
   **Liberar memória**: fecha apps parados em 2º plano e mostra quanto ficou livre
   (também no botão Limpar: toque em celulares sem limpador Xiaomi, ou segure em qualquer um).
-  **Tema**: Espaço, Aurora, Sakura, Âmbar, Neon ou Grafite (fundo sempre preto AMOLED).
+  **Estilo da tela**: Clássico, Compacto, Grande ou Foco.
+  **Tema**: Espaço, Aurora, Sakura, Âmbar, Neon, Grafite, Matrix, Oceano, Lava ou Lua (fundo sempre preto AMOLED).
+- **Modo Proteção** (aba Bateria): com o celular quente (a partir de 37–42 °C, você escolhe) ou bateria ≤ 15%,
+  pausa animações, mede menos, pode baixar brilho e tempo de tela e mostra o cartão "Esfriar agora".
+  Volta tudo ao normal quando esfria. Também mostra o **gasto médio** em % por hora.
+- O aviso de tela inicial padrão só aparece se o Leve não for a tela inicial; segure nele para esconder.
   **Animações da interface**: abas deslizando, risquinho que acompanha a aba, listas entrando
   em cascata e botões que afundam ao tocar. Leves (só GPU) e pausam no modo economia.
   **Atualizar o launcher**: confere a versão nova no GitHub, baixa e abre o instalador.

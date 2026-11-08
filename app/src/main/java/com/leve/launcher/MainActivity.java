@@ -78,7 +78,7 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * Leve Launcher v14 — tela inicial minimalista com tema espacial.
+ * Leve Launcher v15 — tela inicial minimalista com tema espacial.
  *
  * Abas (toque no nome ou deslize para os lados):
  *   Essenciais  – seus atalhos organizados + controle de música
@@ -106,7 +106,8 @@ public class MainActivity extends Activity {
     // Estas mudam conforme o tema escolhido em Sistema → Tema
     static int MUTED, FAINT, ACCENT, LINE, STAR_R, STAR_G, STAR_B;
 
-    static final String[] THEME_NAMES = {"Espaço", "Aurora", "Sakura", "Âmbar", "Neon", "Grafite"};
+    static final String[] THEME_NAMES = {"Espaço", "Aurora", "Sakura", "Âmbar", "Neon", "Grafite",
+            "Matrix", "Oceano", "Lava", "Lua"};
     private static final int[][] THEMES = {
             // ACCENT,    LINE,       MUTED,      FAINT,      cor das estrelas (R, G, B)
             {0xFFB4C4FF, 0xFF555C7A, 0xFFC2C7D6, 0xFF8A90A8, 170, 190, 255},
@@ -115,7 +116,26 @@ public class MainActivity extends Activity {
             {0xFFFFC870, 0xFF7A6240, 0xFFE3D3BC, 0xFFA8977E, 255, 210, 140},
             {0xFF6FF6FF, 0xFF2F6C78, 0xFFBFE9EE, 0xFF7FAFB5, 120, 240, 255},
             {0xFFFFFFFF, 0xFF5A5A5A, 0xFFC8C8C8, 0xFF8E8E8E, 225, 225, 225},
+            {0xFF39FF7A, 0xFF1F6B3A, 0xFFB5E8C4, 0xFF6FA582, 60, 255, 120},
+            {0xFF4FC3F7, 0xFF245A73, 0xFFBCDDEB, 0xFF7AA3B5, 90, 190, 255},
+            {0xFFFF7A45, 0xFF7A3A22, 0xFFEACBBE, 0xFFAD8A7C, 255, 120, 70},
+            {0xFFD8E2F0, 0xFF4E5868, 0xFFC9D0DA, 0xFF8A93A1, 210, 220, 240},
     };
+
+    // Estilo da tela (Sistema → Estilo): Clássico, Compacto, Grande ou Foco
+    static final String[] STYLE_NAMES = {"Clássico", "Compacto", "Grande", "Foco"};
+    static int CLOCK_SP = 60, ROW_SP = 19, ROW_PAD = 11;
+    static final int DARK_DIALOG = android.R.style.Theme_DeviceDefault_Dialog_Alert;
+    static boolean SHOW_STATS = true, SHOW_QUICK = true;
+
+    static void applyStyle(int st) {
+        switch (st) {
+            case 1: CLOCK_SP = 40; ROW_SP = 16; ROW_PAD = 8; SHOW_STATS = true; SHOW_QUICK = true; break;
+            case 2: CLOCK_SP = 72; ROW_SP = 24; ROW_PAD = 14; SHOW_STATS = true; SHOW_QUICK = true; break;
+            case 3: CLOCK_SP = 84; ROW_SP = 21; ROW_PAD = 12; SHOW_STATS = false; SHOW_QUICK = false; break;
+            default: CLOCK_SP = 60; ROW_SP = 19; ROW_PAD = 11; SHOW_STATS = true; SHOW_QUICK = true;
+        }
+    }
 
     static void applyTheme(int t) {
         int[] c = THEMES[Math.max(0, Math.min(THEMES.length - 1, t))];
@@ -238,6 +258,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences("leve", MODE_PRIVATE);
         applyTheme(prefs.getInt("tema", 0));
+        applyStyle(prefs.getInt("estilo", 0));
         boolean firstDetect = !prefs.contains("fraco");
         if (firstDetect) prefs.edit().putBoolean("fraco", isWeakPhone()).apply();
         lite = prefs.getBoolean("fraco", false);
@@ -281,7 +302,7 @@ public class MainActivity extends Activity {
 
         loadApps();
 
-        if (!prefs.getBoolean("pediu_padrao", false) && !isDefaultHome()) {
+        if (!prefs.getBoolean("pediu_padrao", false) && !prefs.getBoolean("banner_off", false) && !isDefaultHome()) {
             prefs.edit().putBoolean("pediu_padrao", true).apply();
             requestDefaultHome();
         }
@@ -294,7 +315,8 @@ public class MainActivity extends Activity {
         lastUsageAt = 0;
         updateMusicSettings();
         updatePostCard();
-        defaultBanner.setVisibility(isDefaultHome() ? View.GONE : View.VISIBLE);
+        updateDefaultBanner();
+        updateProtectRows();
         ui.removeCallbacks(tick);
         ui.post(tick);
         updateAnimation();
@@ -335,7 +357,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQ_HOME && !isDefaultHome()) openHomeSettings();
+        // Não abre mais nada sozinho: só some com o aviso se deu certo
+        if (requestCode == REQ_HOME) {
+            if (resultCode == RESULT_OK) prefs.edit().putBoolean("banner_off", true).apply();
+            updateDefaultBanner();
+        }
     }
 
     // ================================================================
@@ -384,11 +410,19 @@ public class MainActivity extends Activity {
 
         // --- Aviso de tela inicial padrão ---
         defaultBanner = text(14, ACCENT);
-        defaultBanner.setText("✦  Toque para tornar o Leve sua tela inicial");
+        defaultBanner.setText("✦  Toque para tornar o Leve sua tela inicial  ·  segure para esconder");
         defaultBanner.setBackground(pill(0xFF000000, ACCENT));
         defaultBanner.setPadding(dp(16), dp(10), dp(16), dp(10));
         defaultBanner.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { requestDefaultHome(); }
+        });
+        defaultBanner.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override public boolean onLongClick(View v) {
+                prefs.edit().putBoolean("banner_off", true).apply();
+                defaultBanner.setVisibility(View.GONE);
+                Toast.makeText(MainActivity.this, "Aviso escondido", Toast.LENGTH_SHORT).show();
+                return true;
+            }
         });
         LinearLayout.LayoutParams bp = lp(MATCH, WRAP);
         bp.bottomMargin = dp(14);
@@ -399,7 +433,7 @@ public class MainActivity extends Activity {
         clock.setFormat24Hour("HH:mm");
         clock.setFormat12Hour("HH:mm");
         clock.setTextColor(TEXT);
-        clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 60);
+        clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, CLOCK_SP);
         clock.setTypeface(Typeface.create("sans-serif-thin", Typeface.NORMAL));
         clock.setIncludeFontPadding(false);
         clock.setOnClickListener(new View.OnClickListener() {
@@ -423,6 +457,27 @@ public class MainActivity extends Activity {
             @Override public void onClick(View v) { selectTab(TAB_SYS); }
         });
         root.addView(statsLine);
+        if (!SHOW_STATS) statsLine.setVisibility(View.GONE);
+
+        // --- Cartão do Modo Proteção (só aparece com calor ou bateria baixa) ---
+        protectCard = new LinearLayout(this);
+        protectCard.setOrientation(LinearLayout.VERTICAL);
+        protectCard.setBackground(pill(0xFF000000, 0xFFFF8A65));
+        protectCard.setPadding(dp(16), dp(10), dp(16), dp(10));
+        protectTitle = text(14, 0xFFFFB199);
+        protectTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        protectCard.addView(protectTitle);
+        TextView protectHint = text(12.5f, MUTED);
+        protectHint.setText("Animações pausadas e medições mais espaçadas. Toque para esfriar agora.");
+        protectHint.setPadding(0, dp(2), 0, 0);
+        protectCard.addView(protectHint);
+        protectCard.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { coolDownNow(); }
+        });
+        protectCard.setVisibility(View.GONE);
+        LinearLayout.LayoutParams pcp = lp(MATCH, WRAP);
+        pcp.topMargin = dp(12);
+        root.addView(protectCard, pcp);
 
         // --- Acesso rápido ---
         LinearLayout quick = new LinearLayout(this);
@@ -430,6 +485,7 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams qp = lp(MATCH, WRAP);
         qp.topMargin = dp(18);
         root.addView(quick, qp);
+        if (!SHOW_QUICK) quick.setVisibility(View.GONE);
         TextView clean = quickButton("◌  Limpar", new View.OnClickListener() {
             @Override public void onClick(View v) {
                 if (hasXiaomiCleaner()) openCleaner(); else freeRam();
@@ -1067,6 +1123,27 @@ public class MainActivity extends Activity {
         ramBtn.setText("Liberar ›");
         ((View) ramBtn.getParent()).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { freeRam(); }
+        });
+        TextView styleValue = row(c, "Estilo da tela");
+        styleValue.setText(STYLE_NAMES[Math.max(0, Math.min(3, prefs.getInt("estilo", 0)))] + " ›");
+        styleValue.setTextColor(ACCENT);
+        ((View) styleValue.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                new AlertDialog.Builder(MainActivity.this, DARK_DIALOG)
+                        .setTitle("Estilo da tela")
+                        .setSingleChoiceItems(new String[]{
+                                "Clássico — como sempre foi",
+                                "Compacto — cabe mais apps na tela",
+                                "Grande — letras maiores, fácil de ler",
+                                "Foco — só relógio e apps, sem distrações"},
+                                prefs.getInt("estilo", 0), new DialogInterface.OnClickListener() {
+                                    @Override public void onClick(DialogInterface d, int which) {
+                                        d.dismiss();
+                                        prefs.edit().putInt("estilo", which).apply();
+                                        recreate();
+                                    }
+                                }).show();
+            }
         });
         themeValue = row(c, "Tema");
         themeValue.setText(THEME_NAMES[Math.max(0, Math.min(THEME_NAMES.length - 1, prefs.getInt("tema", 0)))] + " ›");
@@ -2061,7 +2138,7 @@ public class MainActivity extends Activity {
                 lastUsageAt = SystemClock.uptimeMillis();
                 loadUsageRanking();
             }
-            ui.postDelayed(this, lite && tab != TAB_SYS && tab != TAB_BAT ? 10000 : STATS_EVERY_MS);
+            ui.postDelayed(this, (lite || protectMode) && tab != TAB_SYS && tab != TAB_BAT ? 10000 : STATS_EVERY_MS);
         }
     };
 
@@ -2210,6 +2287,8 @@ public class MainActivity extends Activity {
         line.append("  ·  ").append(s.charging ? "⚡" : "Bat. ").append(s.batt >= 0 ? s.batt + "%" : "—");
         if (!Float.isNaN(s.battTemp)) line.append("  ·  ").append(Math.round(s.battTemp)).append("°C");
         statsLine.setText(line);
+        checkProtection(s);
+        trackDrain(s);
 
         if (s.currentMa != Integer.MIN_VALUE && s.currentMa > 0) {
             avgMa = avgMa < 0 ? s.currentMa : avgMa * 0.7 + s.currentMa * 0.3;
@@ -2259,6 +2338,47 @@ public class MainActivity extends Activity {
         bVolt = row(c, "Voltagem");
         bHealth = row(c, "Saúde");
 
+        bDrain = row(c, "Gasto médio");
+
+        section(c, "MODO PROTEÇÃO (CALOR E BATERIA BAIXA)");
+        TextView pNote = text(12, FAINT);
+        pNote.setText("Quando o celular esquenta ou a bateria fica baixa, o launcher pausa animações, "
+                + "mede menos e pode baixar o brilho e o tempo de tela sozinho. Volta ao normal quando esfria.");
+        pNote.setLineSpacing(dp(2), 1f);
+        pNote.setPadding(0, 0, 0, dp(6));
+        c.addView(pNote);
+        pStatus = row(c, "Proteção automática");
+        ((View) pStatus.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                prefs.edit().putBoolean("protecao", !prefs.getBoolean("protecao", true)).apply();
+                if (!prefs.getBoolean("protecao", true) && protectMode) setProtect(false, "");
+                updateProtectRows();
+            }
+        });
+        pLimit = row(c, "Ligar a partir de");
+        ((View) pLimit.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                int cur = prefs.getInt("limite", 40);
+                int next = cur >= 42 ? 37 : cur + 1;
+                prefs.edit().putInt("limite", next).apply();
+                updateProtectRows();
+            }
+        });
+        pBright = row(c, "Baixar brilho e tempo de tela");
+        ((View) pBright.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                if (!canWriteSettings()) { askWriteSettings(); return; }
+                prefs.edit().putBoolean("auto_brilho", !prefs.getBoolean("auto_brilho", true)).apply();
+                updateProtectRows();
+            }
+        });
+        TextView coolBtn = row(c, "Esfriar agora");
+        coolBtn.setText("Esfriar ›");
+        coolBtn.setTextColor(ACCENT);
+        ((View) coolBtn.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { coolDownNow(); }
+        });
+
         section(c, "QUEM MAIS GASTOU HOJE");
         usageNote = text(12, FAINT);
         usageNote.setText("Tempo que cada app ficou ativo desde 0h, na tela e em segundo plano. "
@@ -2303,7 +2423,10 @@ public class MainActivity extends Activity {
         return scroll;
     }
 
+    private int lastBatt = -1;
+
     private void showBattery(Stats s) {
+        lastBatt = s.batt;
         bLevel.setText(s.batt >= 0 ? s.batt + "%" : "—");
         barBatt.setValue(s.batt >= 0 ? s.batt : -1);
         String st = s.full ? "Cheia" : s.charging ? "Carregando" : "Descarregando";
@@ -2323,6 +2446,8 @@ public class MainActivity extends Activity {
         bTemp.setTextColor(!Float.isNaN(s.battTemp) && s.battTemp >= 40 ? 0xFFFF8A80 : TEXT);
         bVolt.setText(s.voltage > 0 ? String.format(BR, "%.2f V", s.voltage / 1000f) : "—");
         bHealth.setText(s.health);
+        if (bDrain != null) bDrain.setText(drainText());
+        if (pStatus != null) updateProtectRows();
     }
 
     private static String formatDur(long ms) {
@@ -2505,7 +2630,7 @@ public class MainActivity extends Activity {
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
         boolean saver = pm != null && pm.isPowerSaveMode();
         boolean uiWanted = prefs.getBoolean("anim_ui", true);
-        uiAnim = uiWanted && !saver && !lite;
+        uiAnim = uiWanted && !saver && !lite && !protectMode;
         if (uiAnimToggle != null) {
             uiAnimToggle.setText(!uiWanted ? "Desligadas" : saver ? "Pausadas (economia)" : "Ligadas");
         }
@@ -2513,7 +2638,7 @@ public class MainActivity extends Activity {
             animToggle.setText(!wanted ? "Desligada" : saver ? "Pausada (economia)" : "Ligada");
         }
         if (liteToggle != null) liteToggle.setText(lite ? "Ligado" : "Desligado");
-        stars.setRunning(wanted && !saver && resumed && !lite);
+        stars.setRunning(wanted && !saver && resumed && !lite && !protectMode);
     }
 
     // ================================================================
@@ -2607,6 +2732,135 @@ public class MainActivity extends Activity {
         }
     }
 
+    // ---------- Modo Proteção: calor e bateria baixa ----------
+
+    private boolean protectMode;
+    private LinearLayout protectCard;
+    private TextView protectTitle, bDrain, pStatus, pLimit, pBright;
+
+    private void checkProtection(Stats s) {
+        if (!prefs.getBoolean("protecao", true)) return;
+        int limit = prefs.getInt("limite", 40);
+        boolean hot = !Float.isNaN(s.battTemp) && s.battTemp >= limit;
+        boolean cool = Float.isNaN(s.battTemp) || s.battTemp <= limit - 2;
+        boolean low = s.batt >= 0 && s.batt <= 15 && !s.charging;
+        if (!protectMode && (hot || low)) {
+            setProtect(true, hot ? "🌡  Celular quente (" + Math.round(s.battTemp) + "°C) — Modo Proteção ligado"
+                    : "🔋  Bateria baixa (" + s.batt + "%) — Modo Proteção ligado");
+            if (hot) applyCoolScreen();
+        } else if (protectMode && cool && !low) {
+            setProtect(false, "");
+            Toast.makeText(this, "Celular normal de novo — tudo voltou como antes", Toast.LENGTH_SHORT).show();
+        } else if (protectMode && hot) {
+            protectTitle.setText("🌡  Celular quente (" + Math.round(s.battTemp) + "°C) — Modo Proteção ligado");
+        }
+    }
+
+    private void setProtect(boolean on, String title) {
+        protectMode = on;
+        protectCard.setVisibility(on ? View.VISIBLE : View.GONE);
+        if (on) protectTitle.setText(title);
+        else restoreScreen();
+        updateAnimation();
+        updateProtectRows();
+    }
+
+    /** Toque no cartão: fecha apps parados e baixa o brilho na hora. */
+    private void coolDownNow() {
+        freeRam();
+        if (canWriteSettings()) {
+            applyCoolScreen();
+            Toast.makeText(this, "Brilho e tempo de tela reduzidos até o celular esfriar", Toast.LENGTH_LONG).show();
+        } else {
+            askWriteSettings();
+        }
+    }
+
+    private boolean canWriteSettings() {
+        return Build.VERSION.SDK_INT < 23 || Settings.System.canWrite(this);
+    }
+
+    private void askWriteSettings() {
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Baixar brilho sozinho")
+                .setMessage("Para baixar o brilho e o tempo de tela quando o celular esquentar, "
+                        + "permita \"Alterar configurações do sistema\" para o Leve Launcher. "
+                        + "Tudo volta ao normal quando ele esfriar.")
+                .setPositiveButton("Permitir", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) {
+                        tryStart(new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS,
+                                Uri.parse("package:" + getPackageName())));
+                    }
+                })
+                .setNegativeButton("Agora não", null)
+                .show();
+    }
+
+    /** Brilho mais baixo e tela apagando em 30 s; guarda como estava para devolver depois. */
+    private void applyCoolScreen() {
+        if (!prefs.getBoolean("auto_brilho", true) || !canWriteSettings()) return;
+        if (prefs.getBoolean("tela_reduzida", false)) return;
+        try {
+            android.content.ContentResolver cr = getContentResolver();
+            int mode = Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, 0);
+            int bright = Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS, 128);
+            int timeout = Settings.System.getInt(cr, Settings.System.SCREEN_OFF_TIMEOUT, 60000);
+            prefs.edit().putBoolean("tela_reduzida", true).putInt("old_mode", mode)
+                    .putInt("old_bright", bright).putInt("old_timeout", timeout).apply();
+            Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE,
+                    Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL);
+            Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, Math.max(20, Math.min(bright, 255) * 45 / 100));
+            if (timeout > 30000) Settings.System.putInt(cr, Settings.System.SCREEN_OFF_TIMEOUT, 30000);
+        } catch (Exception ignored) { }
+    }
+
+    private void restoreScreen() {
+        if (!prefs.getBoolean("tela_reduzida", false) || !canWriteSettings()) return;
+        try {
+            android.content.ContentResolver cr = getContentResolver();
+            Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, prefs.getInt("old_bright", 128));
+            Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, prefs.getInt("old_mode", 1));
+            Settings.System.putInt(cr, Settings.System.SCREEN_OFF_TIMEOUT, prefs.getInt("old_timeout", 60000));
+        } catch (Exception ignored) { }
+        prefs.edit().putBoolean("tela_reduzida", false).apply();
+    }
+
+    private void updateProtectRows() {
+        if (pStatus == null) return;
+        boolean on = prefs.getBoolean("protecao", true);
+        pStatus.setText(!on ? "Desligada" : protectMode ? "ATIVA agora" : "Ligada");
+        pStatus.setTextColor(protectMode ? 0xFFFFB199 : TEXT);
+        pLimit.setText(prefs.getInt("limite", 40) + " °C ou bateria ≤ 15% ›");
+        pBright.setText(!canWriteSettings() ? "Permitir ›"
+                : prefs.getBoolean("auto_brilho", true) ? "Sim" : "Não");
+        pBright.setTextColor(!canWriteSettings() ? ACCENT : TEXT);
+    }
+
+    /** Gasto médio em %/hora, medido enquanto a bateria descarrega (só com o launcher aberto). */
+    private void trackDrain(Stats s) {
+        if (s.batt < 0) return;
+        long now = System.currentTimeMillis();
+        if (s.charging || s.full) {
+            prefs.edit().remove("drain_t").remove("drain_l").apply();
+            return;
+        }
+        if (!prefs.contains("drain_t") || s.batt > prefs.getInt("drain_l", 0)) {
+            prefs.edit().putLong("drain_t", now).putInt("drain_l", s.batt).apply();
+        }
+    }
+
+    private String drainText() {
+        if (!prefs.contains("drain_t")) return "medindo… (desconectado do carregador)";
+        long t0 = prefs.getLong("drain_t", 0);
+        double hours = (System.currentTimeMillis() - t0) / 3600000.0;
+        int lost = prefs.getInt("drain_l", 0) - lastBatt;
+        if (hours < 0.25 || lost <= 0 || lastBatt < 0) return "medindo…";
+        double rate = lost / hours;
+        String txt = String.format(BR, "%.1f%% por hora", rate);
+        if (rate >= 15) txt += "  ⚠ alto";
+        return txt;
+    }
+
     private void openBattery() {
         if (startQuiet(new Intent(Intent.ACTION_POWER_USAGE_SUMMARY))) return;
         if (startQuiet(new Intent("android.settings.BATTERY_SAVER_SETTINGS"))) return;
@@ -2618,9 +2872,28 @@ public class MainActivity extends Activity {
     // ================================================================
 
     private boolean isDefaultHome() {
-        Intent home = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
-        ResolveInfo ri = getPackageManager().resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY);
-        return ri != null && ri.activityInfo != null && getPackageName().equals(ri.activityInfo.packageName);
+        // Android 10+: pergunta direto ao sistema quem é a tela inicial (o jeito antigo erra no Samsung/Xiaomi)
+        if (Build.VERSION.SDK_INT >= 29) {
+            try {
+                RoleManager rm = getSystemService(RoleManager.class);
+                if (rm != null && rm.isRoleAvailable(RoleManager.ROLE_HOME)) {
+                    if (rm.isRoleHeld(RoleManager.ROLE_HOME)) return true;
+                }
+            } catch (Exception ignored) { }
+        }
+        try {
+            Intent home = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
+            ResolveInfo ri = getPackageManager().resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY);
+            if (ri != null && ri.activityInfo != null && getPackageName().equals(ri.activityInfo.packageName)) return true;
+        } catch (Exception ignored) { }
+        return false;
+    }
+
+    /** O aviso só aparece se o Leve não for a tela inicial E você não tiver escondido. */
+    private void updateDefaultBanner() {
+        boolean isDefault = isDefaultHome();
+        if (isDefault) prefs.edit().putBoolean("banner_off", true).apply();
+        defaultBanner.setVisibility(isDefault || prefs.getBoolean("banner_off", false) ? View.GONE : View.VISIBLE);
     }
 
     private void requestDefaultHome() {
@@ -2692,10 +2965,10 @@ public class MainActivity extends Activity {
     // ================================================================
 
     private TextView appRowView() {
-        TextView tv = text(19, TEXT);
+        TextView tv = text(ROW_SP, TEXT);
         tv.setSingleLine(true);
         tv.setGravity(Gravity.CENTER_VERTICAL);
-        tv.setPadding(0, dp(11), 0, dp(11));
+        tv.setPadding(0, dp(ROW_PAD), 0, dp(ROW_PAD));
         return tv;
     }
 
