@@ -33,6 +33,18 @@
         <package android:name="com.miui.powerkeeper" />
         <package android:name="com.gabriel.levemusic" />
         <package android:name="com.leve.analise" />
+        <!-- Widget do Google: app Google, Lens e pesquisa por voz -->
+        <package android:name="com.google.android.googlequicksearchbox" />
+        <package android:name="com.google.ar.lens" />
+        <intent>
+            <action android:name="android.intent.action.WEB_SEARCH" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.WEB_SEARCH" />
+        </intent>
+        <intent>
+            <action android:name="android.search.action.GLOBAL_SEARCH" />
+        </intent>
     </queries>
 
     <application

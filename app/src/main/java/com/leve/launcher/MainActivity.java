@@ -78,7 +78,7 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * Leve Launcher v15 — tela inicial minimalista com tema espacial.
+ * Leve Launcher v16 — tela inicial minimalista com tema espacial + barra do Google.
  *
  * Abas (toque no nome ou deslize para os lados):
  *   Essenciais  – seus atalhos organizados + controle de música
@@ -92,7 +92,8 @@ import java.util.Random;
  * Barra fixa embaixo: Telefone, Mensagens, Câmera, Calculadora e Galeria
  * (segure o dedo num botão para trocar por outro app).
  *
- * Economia: fundo preto puro, sem ícones, sem widgets, sem bibliotecas.
+ * Economia: fundo preto puro, sem ícones, sem bibliotecas. A barra do Google é só um campo
+ * de texto (nada rodando em segundo plano).
  * As medições e a animação do fundo só rodam com a tela inicial visível,
  * e a animação desliga sozinha no modo economia de bateria.
  */
@@ -157,6 +158,9 @@ public class MainActivity extends Activity {
     // Barra de baixo: atalhos fixos (dá para trocar segurando o dedo)
     private static final String[] DOCK_SYMBOL = {"☎", "✉", "◎", "⊞", "▦"};
     private static final String[] DOCK_NAME = {"Telefone", "Mensagens", "Câmera", "Calculadora", "Galeria"};
+    private static final String[] DOCK_SHORT = {"Telefone", "SMS", "Câmera", "Calc.", "Galeria"};
+
+    private String dockDefaultName(int i) { return compact ? DOCK_SHORT[i] : DOCK_NAME[i]; }
     private static final long USAGE_EVERY_MS = 30000;
 
     private static final Locale BR = new Locale("pt", "BR");
@@ -213,7 +217,9 @@ public class MainActivity extends Activity {
 
     private final List<App> allApps = new ArrayList<>();
     private final Map<String, App> byKey = new HashMap<>();
-    private final List<Object> rows = new ArrayList<>();
+    final List<Object> rows = new ArrayList<>();
+    /** Linha "Pesquisar no Google" no fim da busca de apps. */
+    static final Object GOOGLE_ROW = new Object();
     private final List<Ess> essItems = new ArrayList<>();
     private final Map<String, Integer> usage = new HashMap<>();
 
@@ -292,11 +298,12 @@ public class MainActivity extends Activity {
         });
 
         appsCallback = new LauncherApps.Callback() {
-            @Override public void onPackageRemoved(String p, UserHandle u) { loadApps(); }
-            @Override public void onPackageAdded(String p, UserHandle u) { loadApps(); }
-            @Override public void onPackageChanged(String p, UserHandle u) { loadApps(); }
-            @Override public void onPackagesAvailable(String[] p, UserHandle u, boolean r) { loadApps(); }
-            @Override public void onPackagesUnavailable(String[] p, UserHandle u, boolean r) { loadApps(); }
+            // A Play Store atualiza vários apps de uma vez: junta tudo numa recarga só
+            @Override public void onPackageRemoved(String p, UserHandle u) { scheduleReload(); }
+            @Override public void onPackageAdded(String p, UserHandle u) { scheduleReload(); }
+            @Override public void onPackageChanged(String p, UserHandle u) { scheduleReload(); }
+            @Override public void onPackagesAvailable(String[] p, UserHandle u, boolean r) { scheduleReload(); }
+            @Override public void onPackagesUnavailable(String[] p, UserHandle u, boolean r) { scheduleReload(); }
         };
         if (launcherApps != null) launcherApps.registerCallback(appsCallback, ui);
 
@@ -403,16 +410,32 @@ public class MainActivity extends Activity {
         if (lite) stars.setVisibility(View.GONE);
         frame.addView(stars, new FrameLayout.LayoutParams(MATCH, MATCH));
 
+        // Tela pequena ou letra grande do sistema: tudo mais compacto para sobrar espaço pra lista
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        float hDp = dm.heightPixels / dm.density, wDp = dm.widthPixels / dm.density;
+        float fs = getResources().getConfiguration().fontScale;
+        fontScale = fs;
+        compact = hDp < 680 || hDp / Math.max(1f, fs) < 600 || wDp < 340;
+        tight = hDp < 560 || (compact && fs >= 1.5f);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(22), dp(24), dp(22), 0);
+        int side = wDp < 340 ? 14 : 22;
+        root.setPadding(dp(side), dp(compact ? 12 : 24), dp(side), 0);
         frame.addView(root, new FrameLayout.LayoutParams(MATCH, MATCH));
+        // O foco começa na tela, não num campo de texto (sem cursor piscando nem teclado do nada)
+        root.setFocusableInTouchMode(true);
+        root.setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
+        homeRoot = root;
 
         // --- Aviso de tela inicial padrão ---
         defaultBanner = text(14, ACCENT);
         defaultBanner.setText("✦  Toque para tornar o Leve sua tela inicial  ·  segure para esconder");
         defaultBanner.setBackground(pill(0xFF000000, ACCENT));
-        defaultBanner.setPadding(dp(16), dp(10), dp(16), dp(10));
+        defaultBanner.setPadding(dp(16), dp(compact ? 7 : 10), dp(16), dp(compact ? 7 : 10));
+        if (compact) {
+            defaultBanner.setText("✦  Tornar o Leve a tela inicial  ·  segure p/ esconder");
+            hsize(defaultBanner, 13);
+        }
         defaultBanner.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { requestDefaultHome(); }
         });
@@ -425,34 +448,62 @@ public class MainActivity extends Activity {
             }
         });
         LinearLayout.LayoutParams bp = lp(MATCH, WRAP);
-        bp.bottomMargin = dp(14);
+        bp.bottomMargin = dp(compact ? 8 : 14);
         root.addView(defaultBanner, bp);
+
+        // Telas compactas: relógio à esquerda e os botões rápidos (só o símbolo) à direita, na mesma linha
+        LinearLayout head = null, headLeft = null;
+        if (compact) {
+            head = new LinearLayout(this);
+            head.setOrientation(LinearLayout.HORIZONTAL);
+            head.setGravity(Gravity.CENTER_VERTICAL);
+            headLeft = new LinearLayout(this);
+            headLeft.setOrientation(LinearLayout.VERTICAL);
+            head.addView(headLeft, new LinearLayout.LayoutParams(0, WRAP, 1f));
+            root.addView(head, lp(MATCH, WRAP));
+        }
+        LinearLayout clockParent = compact ? headLeft : root;
 
         // --- Relógio, data e medidores ---
         TextClock clock = new TextClock(this);
         clock.setFormat24Hour("HH:mm");
         clock.setFormat12Hour("HH:mm");
         clock.setTextColor(TEXT);
-        clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, CLOCK_SP);
+        if (compact) {
+            // em dp: a letra grande do sistema não deixa o relógio engolir a tela
+            clock.setTextSize(TypedValue.COMPLEX_UNIT_DIP, Math.min(CLOCK_SP, hDp < 560 ? 40 : 48) * Math.min(fs, 1.15f));
+        } else {
+            clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, CLOCK_SP);
+        }
         clock.setTypeface(Typeface.create("sans-serif-thin", Typeface.NORMAL));
         clock.setIncludeFontPadding(false);
         clock.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { tryStart(new Intent(AlarmClock.ACTION_SHOW_ALARMS)); }
         });
-        root.addView(clock);
+        clockParent.addView(clock);
 
         TextClock date = new TextClock(this);
         date.setFormat24Hour("EEEE, d 'de' MMMM");
         date.setFormat12Hour("EEEE, d 'de' MMMM");
         date.setTextColor(MUTED);
         date.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        if (compact) {
+            hsize(date, 13.5f);
+            date.setFormat24Hour("EEE, d 'de' MMM");
+            date.setFormat12Hour("EEE, d 'de' MMM");
+        }
+        date.setSingleLine(true);
+        date.setEllipsize(android.text.TextUtils.TruncateAt.END);
         date.setLetterSpacing(0.04f);
-        root.addView(date);
+        clockParent.addView(date);
 
         statsLine = text(13, ACCENT);
+        hsize(statsLine, 13);
         statsLine.setText("RAM —  ·  CPU —  ·  Bateria —");
         statsLine.setLetterSpacing(0.03f);
-        statsLine.setPadding(0, dp(8), 0, 0);
+        statsLine.setPadding(0, dp(compact ? 4 : 8), 0, 0);
+        statsLine.setSingleLine(true);
+        statsLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
         statsLine.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { selectTab(TAB_SYS); }
         });
@@ -479,12 +530,24 @@ public class MainActivity extends Activity {
         pcp.topMargin = dp(12);
         root.addView(protectCard, pcp);
 
+        // --- Widget do Google: digitar, falar ou Lens, direto da tela inicial ---
+        googleBar = buildGoogleBar();
+        LinearLayout.LayoutParams gp = lp(MATCH, WRAP);
+        gp.topMargin = dp(compact ? 10 : 14);
+        root.addView(googleBar, gp);
+        updateGoogleBarVisibility();
+
         // --- Acesso rápido ---
         LinearLayout quick = new LinearLayout(this);
         quick.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams qp = lp(MATCH, WRAP);
-        qp.topMargin = dp(18);
-        root.addView(quick, qp);
+        quickRow = quick;
+        if (compact) {
+            head.addView(quick, lp(WRAP, WRAP));
+        } else {
+            LinearLayout.LayoutParams qp = lp(MATCH, WRAP);
+            qp.topMargin = dp(14);
+            root.addView(quick, qp);
+        }
         if (!SHOW_QUICK) quick.setVisibility(View.GONE);
         TextView clean = quickButton("◌  Limpar", new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -516,15 +579,16 @@ public class MainActivity extends Activity {
         tabFrame.addView(tabIndicator, new FrameLayout.LayoutParams(0, dp(2.5f), Gravity.BOTTOM));
         tabScroll.addView(tabFrame);
         LinearLayout.LayoutParams tp = lp(MATCH, WRAP);
-        tp.topMargin = dp(20);
+        tp.topMargin = dp(compact ? 8 : 16);
         root.addView(tabScroll, tp);
         for (int i = 0; i < TABS; i++) {
             final int which = i;
             TextView t = text(14, FAINT);
+            hsize(t, 14);
             t.setText(TAB_NAMES[i]);
             t.setGravity(Gravity.CENTER);
             t.setSingleLine(true);
-            t.setPadding(0, dp(8), dp(20), dp(8));
+            t.setPadding(0, dp(compact ? 6 : 8), dp(compact ? 16 : 20), dp(compact ? 6 : 8));
             t.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             t.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) { selectTab(which); }
@@ -549,10 +613,10 @@ public class MainActivity extends Activity {
         LinearLayout dock = new LinearLayout(this);
         dock.setOrientation(LinearLayout.HORIZONTAL);
         dock.setBackground(pill(SURFACE, LINE));
-        dock.setPadding(dp(4), dp(6), dp(4), dp(6));
+        dock.setPadding(dp(4), dp(compact ? 3 : 6), dp(4), dp(compact ? 3 : 6));
         LinearLayout.LayoutParams dlp = lp(MATCH, WRAP);
-        dlp.topMargin = dp(8);
-        dlp.bottomMargin = dp(14);
+        dlp.topMargin = dp(compact ? 6 : 8);
+        dlp.bottomMargin = dp(compact ? 8 : 14);
         root.addView(dock, dlp);
         for (int i = 0; i < DOCK_NAME.length; i++) {
             dockViews[i] = dockButton(i);
@@ -560,10 +624,223 @@ public class MainActivity extends Activity {
         }
 
         showTab(false);
+        root.requestFocus();
         return frame;
     }
 
     private final LinearLayout[] dockViews = new LinearLayout[5];
+    private LinearLayout homeRoot;
+
+    // ================================================================
+    // Widget do Google
+    // ================================================================
+
+    static final String GOOGLE_APP = "com.google.android.googlequicksearchbox";
+    private boolean compact, tight;
+    private float fontScale = 1f;
+    LinearLayout googleBar;
+    EditText googleInput;
+
+    /**
+     * Barra leve do Google: nada fica rodando, é só um campo de texto.
+     * Digite e toque em buscar (ou Enter), 🎤 pesquisa por voz, ◉ abre o Lens.
+     * Segure a barra para escolher onde abrir as pesquisas ou esconder.
+     */
+    private LinearLayout buildGoogleBar() {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setBackground(pill(SURFACE, LINE));
+        bar.setPadding(dp(14), 0, dp(4), 0);
+        bar.setMinimumHeight(dp(46));
+
+        TextView g = text(18, TEXT);
+        g.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        android.text.SpannableString gs = new android.text.SpannableString("G");
+        gs.setSpan(new android.text.style.ForegroundColorSpan(0xFF8AB4F8), 0, 1, 0);
+        g.setText(gs);
+        g.setPadding(0, 0, dp(10), 0);
+        g.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { openGoogleApp(); }
+        });
+        bar.addView(g, lp(WRAP, WRAP));
+
+        googleInput = new EditText(this);
+        googleInput.setHint(compact ? "Buscar no Google" : "Pesquisar no Google");
+        googleInput.setHintTextColor(FAINT);
+        googleInput.setTextColor(TEXT);
+        googleInput.setTextSize(compact ? TypedValue.COMPLEX_UNIT_DIP : TypedValue.COMPLEX_UNIT_SP,
+                compact ? 15 * Math.min(fontScale, 1.1f) : 15);
+        googleInput.setSingleLine(true);
+        googleInput.setBackground(null);
+        googleInput.setPadding(0, dp(10), 0, dp(10));
+        googleInput.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
+        googleInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_FLAG_AUTO_CORRECT);
+        googleInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                if (event != null && event.getAction() != KeyEvent.ACTION_DOWN) return true;
+                submitGoogle();
+                return true;
+            }
+        });
+        googleInput.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override public boolean onLongClick(View v) {
+                if (googleInput.length() > 0) return false; // deixa colar/selecionar texto
+                showGoogleMenu();
+                return true;
+            }
+        });
+        bar.addView(googleInput, new LinearLayout.LayoutParams(0, WRAP, 1f));
+
+        bar.addView(googleIcon("🎤", "Pesquisar por voz", new View.OnClickListener() {
+            @Override public void onClick(View v) { voiceSearch(); }
+        }));
+        bar.addView(googleIcon("◉", "Google Lens", new View.OnClickListener() {
+            @Override public void onClick(View v) { openLens(); }
+        }));
+        bar.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override public boolean onLongClick(View v) { showGoogleMenu(); return true; }
+        });
+        bar.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { focusGoogle(); }
+        });
+        return bar;
+    }
+
+    private TextView googleIcon(String symbol, String desc, View.OnClickListener click) {
+        TextView b = text(18, MUTED);
+        b.setText(symbol);
+        b.setContentDescription(desc);
+        b.setGravity(Gravity.CENTER);
+        b.setMinWidth(dp(44));
+        b.setMinHeight(dp(44));
+        b.setOnClickListener(click);
+        pressable(b);
+        return b;
+    }
+
+    private void focusGoogle() {
+        googleInput.requestFocus();
+        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null) imm.showSoftInput(googleInput, 0);
+    }
+
+    /** Pesquisa o que foi digitado. Vazio: abre a pesquisa do app Google (ou o google.com). */
+    void submitGoogle() {
+        String q = googleInput.getText().toString().trim();
+        if (q.isEmpty()) { openGoogleApp(); return; }
+        googleSearch(q);
+        googleInput.setText("");
+        googleInput.clearFocus();
+        hideKeyboardOf(googleInput);
+    }
+
+    static boolean looksLikeUrl(String q) {
+        if (q.contains(" ") || q.length() < 4) return false;
+        if (q.startsWith("http://") || q.startsWith("https://")) return true;
+        int dot = q.indexOf('.');
+        return dot > 0 && dot < q.length() - 2 && q.matches("[A-Za-z0-9.-]+\\.[A-Za-z]{2,}(/\\S*)?");
+    }
+
+    /** Abre o resultado onde você escolheu: app Google, navegador padrão ou um navegador fixo. */
+    void googleSearch(String q) {
+        if (looksLikeUrl(q)) {
+            Intent v = new Intent(Intent.ACTION_VIEW, Uri.parse(q.startsWith("http") ? q : "https://" + q));
+            String pkg = prefs.getString("google_open", "");
+            if (pkg.length() > 1 && !pkg.equals(GOOGLE_APP) && startQuiet(new Intent(v).setPackage(pkg))) return;
+            tryStart(v);
+            return;
+        }
+        String where = prefs.getString("google_open", "");
+        Uri web = Uri.parse("https://www.google.com/search?q=" + enc(q));
+        if (where.isEmpty() || where.equals(GOOGLE_APP)) {
+            Intent ws = new Intent(Intent.ACTION_WEB_SEARCH).putExtra(android.app.SearchManager.QUERY, q)
+                    .setPackage(GOOGLE_APP);
+            if (startQuiet(ws)) return;
+        } else if (!where.equals("-")) {
+            if (startQuiet(new Intent(Intent.ACTION_VIEW, web).setPackage(where))) return;
+        }
+        // "-" = navegador padrão, ou plano B quando o escolhido não existe mais
+        tryStart(new Intent(Intent.ACTION_VIEW, web));
+    }
+
+    private void openGoogleApp() {
+        Intent s = new Intent("android.search.action.GLOBAL_SEARCH").setPackage(GOOGLE_APP);
+        if (startQuiet(s)) return;
+        Intent li = getPackageManager().getLaunchIntentForPackage(GOOGLE_APP);
+        if (li != null && startQuiet(li)) return;
+        tryStart(new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com")));
+    }
+
+    private void voiceSearch() {
+        if (startQuiet(new Intent(android.speech.RecognizerIntent.ACTION_WEB_SEARCH))) return;
+        if (startQuiet(new Intent(Intent.ACTION_VOICE_COMMAND))) return;
+        if (startQuiet(new Intent("android.speech.action.VOICE_SEARCH_HANDS_FREE"))) return;
+        Toast.makeText(this, "Pesquisa por voz não disponível. Instale o app Google.", Toast.LENGTH_LONG).show();
+    }
+
+    private void openLens() {
+        Intent lens = new Intent().setClassName(GOOGLE_APP, "com.google.android.apps.search.lens.LensExportedActivity");
+        if (startQuiet(lens)) return;
+        if (startQuiet(new Intent(Intent.ACTION_VIEW, Uri.parse("google://lens")).setPackage(GOOGLE_APP))) return;
+        Intent app = getPackageManager().getLaunchIntentForPackage("com.google.ar.lens");
+        if (app != null && startQuiet(app)) return;
+        tryStart(new Intent(Intent.ACTION_VIEW, Uri.parse("https://lens.google.com")));
+    }
+
+    private void showGoogleMenu() {
+        final List<String> pkgs = new ArrayList<>();
+        final List<String> names = new ArrayList<>();
+        String cur = prefs.getString("google_open", "");
+        pkgs.add(""); names.add((cur.isEmpty() ? "● " : "○ ") + "Automático (app Google, se tiver)");
+        pkgs.add("-"); names.add((cur.equals("-") ? "● " : "○ ") + "Navegador padrão do celular");
+        for (String w : new String[]{"chrome", "brave", "firefox", "opera", "edge", "duckduckgo", "navegador", "browser"}) {
+            for (App a : allApps) {
+                String p = a.component.getPackageName();
+                if (!a.clone && a.search.contains(w) && !pkgs.contains(p)) {
+                    pkgs.add(p);
+                    names.add((cur.equals(p) ? "● " : "○ ") + a.label);
+                }
+            }
+        }
+        final int fixed = names.size();
+        names.add("Esconder a barra do Google");
+        new AlertDialog.Builder(this, DARK_DIALOG)
+                .setTitle("Pesquisas do Google abrem em…")
+                .setItems(names.toArray(new String[0]), new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int which) {
+                        if (which == fixed) { setGoogleBar(false); return; }
+                        prefs.edit().putString("google_open", pkgs.get(which)).apply();
+                    }
+                }).show();
+    }
+
+    /**
+     * Em telas compactas a barra do Google some nas abas de apps: lá a própria busca de apps
+     * já pesquisa no Google, e a lista ganha espaço.
+     */
+    private void updateGoogleBarVisibility() {
+        if (googleBar == null) return;
+        boolean appsTab = pageApps != null && pageApps.getVisibility() == View.VISIBLE;
+        boolean on = prefs.getBoolean("google_bar", true) && !(compact && appsTab);
+        googleBar.setVisibility(on ? View.VISIBLE : View.GONE);
+        if (statsLine != null) statsLine.setVisibility(SHOW_STATS && !(tight && appsTab) ? View.VISIBLE : View.GONE);
+    }
+
+    void setGoogleBar(boolean on) {
+        prefs.edit().putBoolean("google_bar", on).apply();
+        updateGoogleBarVisibility();
+        if (googleToggle != null) googleToggle.setText(on ? "Ligada" : "Desligada");
+        if (!on) Toast.makeText(this, "Barra escondida. Volte em Sistema → Barra do Google", Toast.LENGTH_LONG).show();
+    }
+
+    private TextView googleToggle;
+
+    private void hideKeyboardOf(View v) {
+        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null && v != null) imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+    }
 
     // ---------- Organizar apps ----------
     private static final int SORT_AZ = 0, SORT_CAT = 1, SORT_SIZE = 2, SORT_GAMES = 3;
@@ -671,16 +948,26 @@ public class MainActivity extends Activity {
         LinearLayout b = new LinearLayout(this);
         b.setOrientation(LinearLayout.VERTICAL);
         b.setGravity(Gravity.CENTER);
-        b.setPadding(0, dp(6), 0, dp(6));
+        b.setPadding(0, dp(compact ? 3 : 6), 0, dp(compact ? 3 : 6));
         TextView sym = text(20, TEXT);
+        if (compact) hsize(sym, 18);
         sym.setText(DOCK_SYMBOL[i]);
         sym.setGravity(Gravity.CENTER);
-        b.addView(sym);
+        sym.setIncludeFontPadding(false);
+        // altura fixa: todos os nomes ficam alinhados, mesmo com símbolos de tamanhos diferentes
+        b.addView(sym, lp(MATCH, dp(compact ? 24 : 28)));
         TextView name = text(10.5f, MUTED);
-        name.setText(DOCK_NAME[i]);
+        if (compact) name.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 10.5f * Math.min(fontScale, 1.15f));
+        name.setText(dockDefaultName(i));
         name.setGravity(Gravity.CENTER);
         name.setSingleLine(true);
-        name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        if (Build.VERSION.SDK_INT >= 26) {
+            // nome comprido: a letra diminui um pouco para caber, em vez de cortar
+            name.setMaxLines(1);
+            name.setAutoSizeTextTypeUniformWithConfiguration(8, compact ? 13 : 12, 1, TypedValue.COMPLEX_UNIT_DIP);
+        } else {
+            name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        }
         b.addView(name, lp(MATCH, WRAP));
         b.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { openDock(i); }
@@ -697,7 +984,7 @@ public class MainActivity extends Activity {
             if (dockViews[i] == null) continue;
             App custom = byKey.get(prefs.getString("dock" + i, ""));
             TextView name = (TextView) dockViews[i].getChildAt(1);
-            name.setText(custom != null ? custom.label : DOCK_NAME[i]);
+            name.setText(custom != null ? custom.label : dockDefaultName(i));
         }
     }
 
@@ -766,19 +1053,49 @@ public class MainActivity extends Activity {
     private TextView quickButton(String label, View.OnClickListener click) {
         TextView b = text(14, TEXT);
         b.setText(label);
+        if (compact) {
+            // só o símbolo, num botão redondo de 44 dp (o nome fica para leitores de tela)
+            String[] parts = label.split("  ", 2);
+            b.setContentDescription(parts.length > 1 ? parts[1] : label);
+            b.setText(parts[0]);
+            b.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+            b.setGravity(Gravity.CENTER);
+            b.setBackground(pill(SURFACE, LINE));
+            b.setMinWidth(dp(44));
+            b.setMinHeight(dp(44));
+            b.setPadding(0, 0, 0, 0);
+            b.setOnClickListener(click);
+            pressable(b);
+            return b;
+        }
         b.setGravity(Gravity.CENTER);
         b.setSingleLine(true);
+        b.setEllipsize(android.text.TextUtils.TruncateAt.END);
         b.setBackground(pill(SURFACE, LINE));
-        b.setPadding(dp(6), dp(11), dp(6), dp(11));
+        b.setPadding(dp(4), dp(compact ? 8 : 11), dp(4), dp(compact ? 8 : 11));
+        b.setMinHeight(dp(44));
         b.setOnClickListener(click);
         pressable(b);
         return b;
     }
 
     private LinearLayout.LayoutParams quickParams(boolean last) {
+        if (compact) {
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(44), dp(44));
+            p.leftMargin = dp(6);
+            return p;
+        }
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, WRAP, 1f);
         if (!last) p.rightMargin = dp(8);
         return p;
+    }
+
+    LinearLayout quickRow;
+
+    /** Tamanho de letra do topo: em telas compactas a letra do sistema cresce no máximo 25%. */
+    private void hsize(TextView t, float sp) {
+        if (compact) t.setTextSize(TypedValue.COMPLEX_UNIT_DIP, sp * Math.min(fontScale, 1.25f));
+        else t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
     }
 
     private ListView makeList() {
@@ -989,7 +1306,7 @@ public class MainActivity extends Activity {
         page.setOrientation(LinearLayout.VERTICAL);
 
         searchBox = new EditText(this);
-        searchBox.setHint("Buscar app…");
+        searchBox.setHint(compact ? "Buscar app ou no Google…" : "Buscar app…");
         searchBox.setHintTextColor(FAINT);
         searchBox.setTextColor(TEXT);
         searchBox.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
@@ -1039,9 +1356,12 @@ public class MainActivity extends Activity {
         });
         searchBox.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                if (event != null && event.getAction() != KeyEvent.ACTION_DOWN) return true;
                 for (Object o : rows) {
-                    if (o instanceof App) { launch((App) o); break; }
+                    if (o instanceof App) { launch((App) o); return true; }
                 }
+                String q = searchBox.getText().toString().trim();
+                if (!q.isEmpty()) { googleSearch(q); searchBox.setText(""); hideKeyboard(); }
                 return true;
             }
         });
@@ -1059,12 +1379,18 @@ public class MainActivity extends Activity {
         list.setLayoutAnimation(listEntrance());
         list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override public void onItemClick(AdapterView<?> p, View v, int pos, long id) {
+                if (pos < 0 || pos >= rows.size()) return;
                 Object o = rows.get(pos);
                 if (o instanceof App) launch((App) o);
+                else if (o == GOOGLE_ROW) {
+                    String q = searchBox.getText().toString().trim();
+                    if (!q.isEmpty()) { googleSearch(q); searchBox.setText(""); hideKeyboard(); }
+                }
             }
         });
         list.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override public boolean onItemLongClick(AdapterView<?> p, View v, int pos, long id) {
+                if (pos < 0 || pos >= rows.size()) return true;
                 Object o = rows.get(pos);
                 if (o instanceof App) showAppMenu((App) o);
                 return true;
@@ -1150,6 +1476,11 @@ public class MainActivity extends Activity {
         themeValue.setTextColor(ACCENT);
         ((View) themeValue.getParent()).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { chooseTheme(); }
+        });
+        googleToggle = row(c, "Barra do Google");
+        googleToggle.setText(prefs.getBoolean("google_bar", true) ? "Ligada" : "Desligada");
+        ((View) googleToggle.getParent()).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { setGoogleBar(!prefs.getBoolean("google_bar", true)); }
         });
         uiAnimToggle = row(c, "Animações da interface");
         ((View) uiAnimToggle.getParent()).setOnClickListener(new View.OnClickListener() {
@@ -1263,6 +1594,7 @@ public class MainActivity extends Activity {
         pageApps.setVisibility(show == pageApps ? View.VISIBLE : View.GONE);
         pageBat.setVisibility(show == pageBat ? View.VISIBLE : View.GONE);
         pageSys.setVisibility(show == pageSys ? View.VISIBLE : View.GONE);
+        updateGoogleBarVisibility();
         if (fade && uiAnim) {
             // Desliza um pouquinho para o lado da aba e aparece (só propriedades da GPU, bem leve)
             show.setAlpha(0f);
@@ -1333,14 +1665,38 @@ public class MainActivity extends Activity {
     // Apps
     // ================================================================
 
-    private void loadApps() {
+    private final Runnable reload = new Runnable() {
+        @Override public void run() { loadApps(); }
+    };
+
+    /** Várias mudanças seguidas (instalar/atualizar) viram uma recarga só, 400 ms depois da última. */
+    void scheduleReload() {
+        ui.removeCallbacks(reload);
+        ui.postDelayed(reload, 400);
+    }
+
+    /** Uma única linha de trabalho para ler os apps: nunca duas leituras pesadas ao mesmo tempo. */
+    private static final java.util.concurrent.ExecutorService APPS_IO =
+            java.util.concurrent.Executors.newSingleThreadExecutor(new java.util.concurrent.ThreadFactory() {
+                @Override public Thread newThread(Runnable r) {
+                    Thread t = new Thread(r, "leve-apps");
+                    t.setDaemon(true);
+                    return t;
+                }
+            });
+    /** Quantas leituras completas de apps já rodaram (para os testes de estresse). */
+    static final java.util.concurrent.atomic.AtomicInteger LOADS_RUN = new java.util.concurrent.atomic.AtomicInteger();
+
+    void loadApps() {
         final int gen = ++loadGeneration;
         // No modo celular fraco, data/tamanho/categoria só são lidos quando alguma tela precisa
         final boolean wantMeta = !lite || tab == TAB_NEW || sortMode != SORT_AZ;
         final boolean wantFullSize = sortMode == SORT_SIZE;
-        new Thread(new Runnable() {
+        APPS_IO.execute(new Runnable() {
             @Override public void run() {
-                Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+                if (gen != loadGeneration) return; // já pediram outra mais nova: pula esta
+                LOADS_RUN.incrementAndGet();
+                try { Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND); } catch (Exception ignored) { }
                 final List<App> result = new ArrayList<>();
                 String self = getPackageName();
                 UserHandle me = Process.myUserHandle();
@@ -1439,7 +1795,9 @@ public class MainActivity extends Activity {
                 });
                 ui.post(new Runnable() {
                     @Override public void run() {
-                        if (gen != loadGeneration || isFinishing()) return;
+                        if (gen != loadGeneration || isFinishing() || isDestroyed()) return;
+                        musicCache = null;
+                        musicCached = false;
                         allApps.clear();
                         allApps.addAll(result);
                         byKey.clear();
@@ -1459,7 +1817,7 @@ public class MainActivity extends Activity {
                     }
                 });
             }
-        }).start();
+        });
     }
 
     private List<App> frequentApps() {
@@ -1485,6 +1843,8 @@ public class MainActivity extends Activity {
                 else if (a.search.contains(q)) contains.add(a);
             }
             rows.addAll(contains);
+            // no fim da busca: pesquisar o mesmo texto no Google (1 toque)
+            if (prefs.getBoolean("google_bar", true) || rows.isEmpty()) rows.add(GOOGLE_ROW);
         } else if (tab == TAB_NEW) {
             List<App> fresh = new ArrayList<>();
             long now = System.currentTimeMillis();
@@ -1992,13 +2352,20 @@ public class MainActivity extends Activity {
     }
 
     /** App escolhido em Sistema → App de música, ou o primeiro de música instalado. */
+    private App musicCache;
+    private boolean musicCached;
+
     private App musicApp() {
         App chosen = byKey.get(prefs.getString("music_app", ""));
         if (chosen != null) return chosen;
+        // guardado: o relógio de 3 s não precisa varrer a lista de apps toda vez
+        if (musicCached && (musicCache == null || byKey.get(musicCache.key) == musicCache)) return musicCache;
         App a = findApp("leve music");
         if (a == null) a = findAppPackage("com.gabriel.levemusic");
         if (a == null) a = findApp("ymusic");
         if (a == null) a = findApp("nyx");
+        musicCache = a;
+        musicCached = true;
         return a;
     }
 
@@ -2173,6 +2540,8 @@ public class MainActivity extends Activity {
         // CPU: o Android não deixa apps lerem o uso real; estimamos pela
         // frequência atual de cada núcleo em relação à máxima.
         int cores = lite && tab != TAB_SYS ? 0 : Runtime.getRuntime().availableProcessors();
+        // Núcleos ligam/desligam sozinhos no celular: se aparecer núcleo novo, mede de novo (antes fechava o app)
+        if (cores > 0 && (cpuMax == null || cpuMax.length < cores)) cpuMax = null;
         if (cpuMax == null && cores > 0) {
             cpuMax = new long[cores];
             for (int i = 0; i < cores; i++) {
@@ -2181,11 +2550,12 @@ public class MainActivity extends Activity {
         }
         double sum = 0;
         int n = 0;
-        for (int i = 0; i < cores; i++) {
-            if (cpuMax[i] <= 0) continue;
+        long[] maxes = cpuMax;
+        for (int i = 0; i < cores && maxes != null && i < maxes.length; i++) {
+            if (maxes[i] <= 0) continue;
             long cur = readLong("/sys/devices/system/cpu/cpu" + i + "/cpufreq/scaling_cur_freq");
             if (cur < 0) continue;
-            sum += Math.min(1.0, (double) cur / cpuMax[i]);
+            sum += Math.min(1.0, (double) cur / maxes[i]);
             n++;
         }
         if (n > 0) s.cpuPct = (int) Math.round(sum / n * 100);
@@ -2631,6 +3001,9 @@ public class MainActivity extends Activity {
         boolean saver = pm != null && pm.isPowerSaveMode();
         boolean uiWanted = prefs.getBoolean("anim_ui", true);
         uiAnim = uiWanted && !saver && !lite && !protectMode;
+        // sem animação: a lista nem prepara a entrada em cascata (economiza no celular fraco)
+        if (list != null && (list.getLayoutAnimation() != null) != uiAnim) list.setLayoutAnimation(uiAnim ? listEntrance() : null);
+        if (essList != null && (essList.getLayoutAnimation() != null) != uiAnim) essList.setLayoutAnimation(uiAnim ? listEntrance() : null);
         if (uiAnimToggle != null) {
             uiAnimToggle.setText(!uiWanted ? "Desligadas" : saver ? "Pausadas (economia)" : "Ligadas");
         }
@@ -2939,6 +3312,12 @@ public class MainActivity extends Activity {
     private void resetHome() {
         if (searchBox.length() > 0) searchBox.setText("");
         searchBox.clearFocus();
+        if (googleInput != null) {
+            if (googleInput.length() > 0) googleInput.setText("");
+            googleInput.clearFocus();
+            hideKeyboardOf(googleInput);
+        }
+        if (homeRoot != null) homeRoot.requestFocus();
         hideKeyboard();
         int wanted = !essItems.isEmpty() ? TAB_ESS : !frequentApps().isEmpty() ? TAB_FREQ : TAB_ALL;
         if (tab != wanted) {
@@ -2967,6 +3346,7 @@ public class MainActivity extends Activity {
     private TextView appRowView() {
         TextView tv = text(ROW_SP, TEXT);
         tv.setSingleLine(true);
+        tv.setEllipsize(android.text.TextUtils.TruncateAt.END);
         tv.setGravity(Gravity.CENTER_VERTICAL);
         tv.setPadding(0, dp(ROW_PAD), 0, dp(ROW_PAD));
         return tv;
@@ -2976,15 +3356,25 @@ public class MainActivity extends Activity {
         @Override public int getCount() { return rows.size(); }
         @Override public Object getItem(int p) { return rows.get(p); }
         @Override public long getItemId(int p) { return p; }
-        @Override public int getViewTypeCount() { return 2; }
-        @Override public int getItemViewType(int p) { return rows.get(p) instanceof String ? 0 : 1; }
-        @Override public boolean isEnabled(int p) { return rows.get(p) instanceof App; }
+        @Override public int getViewTypeCount() { return 3; }
+        @Override public int getItemViewType(int p) {
+            Object o = rows.get(p);
+            return o instanceof String ? 0 : o == GOOGLE_ROW ? 2 : 1;
+        }
+        @Override public boolean isEnabled(int p) { return !(rows.get(p) instanceof String); }
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
             Object o = rows.get(position);
             TextView tv = (TextView) convertView;
-            if (o instanceof String) {
+            if (o == GOOGLE_ROW) {
+                if (tv == null) {
+                    tv = appRowView();
+                    tv.setTextColor(ACCENT);
+                    tv.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                }
+                tv.setText("⌕  Pesquisar \u201C" + searchBox.getText().toString().trim() + "\u201D no Google");
+            } else if (o instanceof String) {
                 if (tv == null) {
                     tv = text(12, ACCENT);
                     tv.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));

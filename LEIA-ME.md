@@ -1,6 +1,14 @@
-# Leve Launcher v15
+# Leve Launcher v16
 
 Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no nome da aba.
+
+- **Barra do Google** (novo): fica embaixo do relógio. Digite e toque em buscar, 🎤 pesquisa por voz,
+  ◉ abre o Google Lens, o **G** abre o app Google. Site digitado (ex.: g1.globo.com) abre direto.
+  Segure a barra para escolher onde as pesquisas abrem (app Google, navegador padrão, Chrome, Brave…)
+  ou para escondê-la (volta em Sistema → Barra do Google). Não fica nada rodando: é só um campo de texto.
+  A busca de apps também pesquisa no Google quando não acha nenhum app (última linha da lista ou Enter).
+- **Telas pequenas e letra grande**: em celular de tela menor (ou com a letra do sistema aumentada) o topo
+  fica compacto — relógio e botões Limpar/Config/Bateria na mesma linha — para sobrar espaço para os apps.
 
 - **Essenciais**: seus atalhos (YMusic, Nyx, Instagram e clones, Threads, Google Flow,
   Claude, ChatGPT, Brave, TikTok já entram sozinhos se estiverem instalados) + controle de música.
@@ -70,3 +78,11 @@ Launcher bonito no estilo dos celulares novos (iPhone / HyperOS), mas leve.
   tela inicial padrão e **Atualizar**.
 - Leve: ícones desenhados uma vez e guardados, gaveta que reaproveita células, sem desfoque,
   animações só de posição e transparência (pausam no modo economia).
+
+
+## Testes de estresse
+
+`gradle :app:testDebugUnitTest` roda 73 verificações em 10 níveis (fácil → impossível): 20 a 100 mil apps,
+300 atualizações de uma vez, nomes e configurações corrompidas, 6 tamanhos de tela/letra, 50 recriações
+(vazamento de memória), 15 mil ações aleatórias. O placar sai em `app/build/stress/launcher.tsv`.
+Os testes não entram no APK.

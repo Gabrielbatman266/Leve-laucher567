@@ -43,5 +43,21 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+
+    // Testes de estresse (rodam no PC/servidor, não entram no APK): gradle :app:testDebugUnitTest
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+            all {
+                maxHeapSize = '3g'
+                testLogging { events 'failed'; showStandardStreams = true }
+            }
+        }
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.13'
 }
 // Sem nenhuma biblioteca extra: o app fica com poucos KB e usa pouca RAM.
