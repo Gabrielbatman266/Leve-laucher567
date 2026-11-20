@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>Leve Meditar</title>
+<style>
+:root{
+  --bg:#000; --text:#ece8f6; --muted:#8c87a3; --dim:#55516a; --line:rgba(255,255,255,.08);
+  --card:rgba(255,255,255,.035); --lav:#b9a7ff; --teal:#86dccb; --peach:#ffc6a8;
+  --orb1:#b9a7ff; --orb2:#4a3d8f;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.screen{position:fixed;inset:0;display:none;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.screen.on{display:flex}
+#stars{position:fixed;inset:0;pointer-events:none;opacity:.55}
+.serif{font-family:Georgia,"Times New Roman",serif;font-weight:400;letter-spacing:.01em}
+
+/* ---------- Início ---------- */
+#home{overflow-y:auto;padding:28px 22px 30px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.hello{color:var(--muted);font-size:14px}
+.gear{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;font-size:18px;color:var(--muted)}
+h1{font-size:34px;line-height:1.15;margin:4px 0 26px}
+h1 em{font-style:italic;color:var(--lav)}
+.mini-orb{width:120px;height:120px;margin:4px auto 26px;border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,#d9cfff 0%,var(--orb1) 25%,var(--orb2) 65%,transparent 72%);
+  filter:blur(.5px);animation:float 9s ease-in-out infinite;opacity:.9}
+@keyframes float{0%,100%{transform:scale(.86)}50%{transform:scale(1.05)}}
+.card{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);
+  border-radius:22px;padding:18px 18px 16px;margin-bottom:12px;position:relative;overflow:hidden;transition:transform .15s}
+.card:active{transform:scale(.98)}
+.card .k{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.card .t{font-size:22px;margin:6px 0 4px}
+.card .d{font-size:14px;color:var(--muted);line-height:1.45}
+.card .glow{position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:50%;filter:blur(30px);opacity:.35}
+.card .meta{margin-top:10px;font-size:13px;color:var(--dim)}
+.endline{margin:18px 2px 0;font-size:13px;color:var(--muted);line-height:1.5;display:flex;gap:10px;align-items:center}
+.endline b{color:var(--text);font-weight:500}
+.chip{border:1px solid var(--line);border-radius:999px;padding:8px 13px;font-size:13px;color:var(--text);background:var(--card)}
+
+/* ---------- Sessão ---------- */
+#session{align-items:center;justify-content:center;text-align:center}
+.s-top{position:absolute;top:calc(18px + env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:space-between;padding:0 20px;color:var(--muted);font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+.orb-wrap{position:relative;width:min(78vw,340px);height:min(78vw,340px);display:grid;place-items:center}
+.orb{width:100%;height:100%;border-radius:50%;
+  background:radial-gradient(circle at 42% 38%,#efe9ff 0%,var(--orb1) 22%,var(--orb2) 58%,rgba(20,10,50,.0) 70%);
+  transform:scale(.55);transition-property:transform,filter;transition-timing-function:cubic-bezier(.45,.05,.35,1);filter:brightness(.85)}
+.ring{position:absolute;inset:6%;border-radius:50%;border:1px solid rgba(185,167,255,.16)}
+.center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.big{font-size:54px;font-weight:300;font-variant-numeric:tabular-nums;color:#fff;text-shadow:0 0 30px rgba(0,0,0,.5)}
+.cue{margin-top:34px;font-size:22px;min-height:30px;color:var(--text);transition:opacity .6s}
+.sub{margin-top:8px;font-size:14px;color:var(--muted);min-height:20px;max-width:80vw;line-height:1.4}
+.ctrls{position:absolute;bottom:calc(30px + env(safe-area-inset-bottom));left:0;right:0;display:flex;justify-content:center;gap:16px;transition:opacity .8s}
+.cbtn{width:58px;height:58px;border-radius:50%;border:1px solid var(--line);background:var(--card);font-size:20px;color:var(--text)}
+.cbtn.wide{width:auto;padding:0 24px;border-radius:999px;font-size:15px}
+.tapbig{display:none;margin-top:22px;border:1px solid rgba(185,167,255,.35);border-radius:999px;padding:14px 28px;font-size:16px;color:var(--lav);background:rgba(185,167,255,.06)}
+#veil{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 3s;z-index:20}
+#veil.on{opacity:.94;pointer-events:auto}
+#veil .hint{position:absolute;bottom:40px;left:0;right:0;text-align:center;color:#2a2833;font-size:13px}
+.results{margin-top:20px;font-size:15px;color:var(--muted);line-height:1.8}
+.results b{color:var(--teal);font-weight:500}
+
+/* ---------- Ajustes ---------- */
+#settings{background:#000;z-index:30;overflow-y:auto;padding:22px 20px 40px}
+#settings h2{font-size:26px;margin:4px 0 18px;display:flex;justify-content:space-between;align-items:center}
+.grp{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:6px 16px;margin-bottom:14px}
+.grp h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:12px 0 4px}
+.row{padding:12px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row label{display:flex;justify-content:space-between;font-size:15px;margin-bottom:8px}
+.row label span{color:var(--muted);font-size:14px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line);border-radius:999px;padding:8px 12px;font-size:13px;color:var(--muted)}
+.seg button.on{border-color:var(--lav);color:var(--text);background:rgba(185,167,255,.1)}
+input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:28px;background:transparent}
+input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:3px;background:linear-gradient(90deg,var(--lav) var(--p,50%),rgba(255,255,255,.12) var(--p,50%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;margin-top:-8.5px;box-shadow:0 0 12px rgba(185,167,255,.6)}
+select,input[type=text]{width:100%;background:#0b0a10;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:11px 12px;font-size:14px}
+.small{font-size:13px;color:var(--muted);line-height:1.45;margin-top:6px}
+.x{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);font-size:18px;color:var(--muted)}
+.testbtn{margin-top:10px;border:1px solid var(--line);border-radius:999px;padding:9px 16px;font-size:14px}
+#bye{position:fixed;inset:0;background:#000;display:none;align-items:center;justify-content:center;flex-direction:column;z-index:40;color:var(--dim);transition:opacity 4s}
+</style>
+</head>
+<body>
+<div id="stars"></div>
+
+<!-- ============ INÍCIO ============ -->
+<section id="home" class="screen on">
+  <div class="top">
+    <div class="hello" id="hello">Boa noite</div>
+    <button class="gear" id="openSet" aria-label="Ajustes">⚙</button>
+  </div>
+  <h1 class="serif">Respire.<br><em>Você já está aqui.</em></h1>
+  <div class="mini-orb"></div>
+
+  <button class="card" data-go="calm">
+    <div class="glow" style="background:var(--lav)"></div>
+    <div class="k">Meditação guiada · hipnose leve</div>
+    <div class="t serif">Acalmar &amp; adormecer</div>
+    <div class="d">Respiração lenta, corpo relaxando parte por parte e uma descida suave, degrau por degrau.</div>
+    <div class="meta" id="metaCalm">10 min</div>
+  </button>
+
+  <button class="card" data-go="wim">
+    <div class="glow" style="background:var(--teal)"></div>
+    <div class="k">Respiração · energia</div>
+    <div class="t serif">Wim Hof</div>
+    <div class="d">Respirações profundas guiadas pelo som, retenção sem ar e respiração de recuperação.</div>
+    <div class="meta" id="metaWim">3 rodadas · 30 respirações</div>
+  </button>
+
+  <button class="card" data-go="sleep">
+    <div class="glow" style="background:var(--peach)"></div>
+    <div class="k">Só som</div>
+    <div class="t serif">Dormir com som ambiente</div>
+    <div class="d">Sem voz. O som vai baixando sozinho e o app fecha no fim.</div>
+    <div class="meta" id="metaSleep">30 min</div>
+  </button>
+
+  <div class="endline">
+    <span>Ao terminar:</span>
+    <button class="chip" id="endChip">fechar e deixar a tela apagar</button>
+  </div>
+  <p class="small" style="margin-top:14px">Wim Hof: faça sentado ou deitado. Nunca na água, no banho ou dirigindo. Tontura e formigamento leves são comuns; se ficar desconfortável, pare e respire normal.</p>
+</section>
+
+<!-- ============ SESSÃO ============ -->
+<section id="session" class="screen">
+  <div class="s-top"><span id="sTitle">Wim Hof</span><span id="sInfo"></span></div>
+  <div class="orb-wrap">
+    <div class="ring"></div>
+    <div class="orb" id="orb"></div>
+    <div class="center"><div class="big" id="big"></div></div>
+  </div>
+  <div class="cue serif" id="cue"></div>
+  <div class="sub" id="sub"></div>
+  <button class="tapbig" id="tapBig">Preciso respirar</button>
+  <div class="results" id="results"></div>
+  <div class="ctrls" id="ctrls">
+    <button class="cbtn" id="bStop" aria-label="Parar">■</button>
+    <button class="cbtn" id="bPause" aria-label="Pausar">❚❚</button>
+    <button class="cbtn" id="bSkip" aria-label="Pular">⏭</button>
+  </div>
+</section>
+<div id="veil"><div class="hint">toque para ver os controles</div></div>
+<div id="bye"><div class="serif" style="font-size:22px">Boa noite.</div></div>
+
+<!-- ============ AJUSTES ============ -->
+<section id="settings" class="screen">
+  <h2 class="serif">Ajustes <button class="x" id="closeSet">✕</button></h2>
+
+  <div class="grp"><h3>Som ambiente</h3>
+    <div class="row"><label>Natureza</label><div class="seg" data-k="nature" data-o="chuva:Chuva|mar:Mar|vento:Vento noturno|nenhum:Nenhum"></div></div>
+    <div class="row"><label>Música suave de fundo</label><div class="seg" data-k="pad" data-o="1:Ligada|0:Desligada"></div></div>
+    <div class="row"><label>Volume do ambiente <span data-v="ambVol"></span></label><input type="range" min="0" max="100" data-r="ambVol"></div>
+  </div>
+
+  <div class="grp"><h3>Voz</h3>
+    <div class="row"><label>Voz</label><select id="voiceSel"><option value="">Padrão do celular</option></select>
+      <p class="small" id="voiceHint">As vozes vêm do "Texto para fala" do celular. Para mais vozes em português: Configurações → Acessibilidade → Saída de texto para fala → Google → Instalar dados de voz.</p></div>
+    <div class="row"><label>Volume da voz <span data-v="voiceVol"></span></label><input type="range" min="0" max="100" data-r="voiceVol"></div>
+    <div class="row"><label>Velocidade <span data-v="rate"></span></label><input type="range" min="55" max="110" data-r="rate"></div>
+    <div class="row"><label>Tom (mais grave ↔ mais agudo) <span data-v="pitch"></span></label><input type="range" min="60" max="120" data-r="pitch">
+      <button class="testbtn" id="testVoice">▶ Ouvir a voz</button></div>
+  </div>
+
+  <div class="grp"><h3>Wim Hof</h3>
+    <div class="row"><label>Rodadas</label><div class="seg" data-k="rounds" data-o="1:1|2:2|3:3|4:4|5:5"></div></div>
+    <div class="row"><label>Respirações por rodada</label><div class="seg" data-k="breaths" data-o="20:20|30:30|40:40"></div></div>
+    <div class="row"><label>Ritmo</label><div class="seg" data-k="pace" data-o="lento:Lento|normal:Normal|rapido:Rápido"></div></div>
+    <div class="row"><label>Retenção (sem ar)</label><div class="seg" data-k="hold" data-o="auto:Automática|toque:Eu toco quando precisar"></div>
+      <p class="small">Automática: começa em <b id="holdBaseTxt">1:00</b> e sobe 30 s por rodada, de olhos fechados, sem tocar em nada.</p>
+      <div class="seg" data-k="holdBase" data-o="45:0:45|60:1:00|75:1:15|90:1:30|120:2:00" style="margin-top:8px"></div></div>
+    <div class="row"><label>Som da respiração <span data-v="breathVol"></span></label><input type="range" min="0" max="100" data-r="breathVol"></div>
+  </div>
+
+  <div class="grp"><h3>Acalmar &amp; adormecer</h3>
+    <div class="row"><label>Duração</label><div class="seg" data-k="calmMin" data-o="5:5 min|10:10 min|15:15 min|20:20 min"></div></div>
+    <div class="row"><label>Frase para o subconsciente (opcional)</label>
+      <input type="text" id="affirm" maxlength="140" placeholder="Ex.: Eu já sou calmo, seguro e tudo dá certo pra mim.">
+      <p class="small">A voz repete essa frase bem devagar no fundo da hipnose, como algo que já é verdade.</p></div>
+  </div>
+
+  <div class="grp"><h3>Ao terminar</h3>
+    <div class="row"><div class="seg" data-k="endMode" data-o="fechar:Fechar o app e a tela apaga|ficar:Ficar aberto"></div></div>
+    <div class="row"><label>Som ambiente continua depois por</label><div class="seg" data-k="tail" data-o="0:Nada|5:5 min|10:10 min|20:20 min|30:30 min"></div>
+      <p class="small">Vai baixando bem devagar até sumir, e aí fecha.</p></div>
+    <div class="row"><label>"Dormir com som" dura</label><div class="seg" data-k="sleepMin" data-o="15:15 min|30:30 min|45:45 min|60:1 h|90:1 h 30"></div></div>
+    <div class="row"><label>Escurecer a tela durante a sessão</label><div class="seg" data-k="dim" data-o="1:Sim|0:Não"></div></div>
+  </div>
+</section>
+
+<script>
+"use strict";
+/* ================= Ajustes salvos ================= */
+const DEF={nature:"chuva",pad:"1",ambVol:28,voice:"",voiceVol:85,rate:78,pitch:88,
+  rounds:"3",breaths:"30",pace:"normal",hold:"auto",holdBase:"60",breathVol:55,
+  calmMin:"10",affirm:"",endMode:"fechar",tail:"10",sleepMin:"30",dim:"1"};
+let S=Object.assign({},DEF);
+try{Object.assign(S,JSON.parse(localStorage.getItem("leveMeditar")||"{}"))}catch(e){}
+function save(){try{localStorage.setItem("leveMeditar",JSON.stringify(S))}catch(e){}}
+const $=id=>document.getElementById(id);
+const L=window.Leve||null; // ponte do Leve Launcher (Android)
+
+/* ================= Estrelas (estáticas, custo zero) ================= */
+(function(){let sh=[],w=innerWidth,h=innerHeight;for(let i=0;i<70;i++){const a=(Math.random()*.6+.2).toFixed(2);
+ sh.push(`${(Math.random()*w)|0}px ${(Math.random()*h)|0}px 0 ${Math.random()<.15?1:0}px rgba(255,255,255,${a})`)}
+ const d=document.createElement("div");d.style.cssText=`width:1px;height:1px;box-shadow:${sh.join(",")}`;$("stars").appendChild(d)})();
+(function(){const h=new Date().getHours();$("hello").textContent=h<5?"Boa madrugada":h<12?"Bom dia":h<18?"Boa tarde":"Boa noite"})();
+
+/* ================= Áudio (tudo sintetizado, sem arquivos) ================= */
+let ac=null,master,ambBus,breathBus,fxBus,ambNodes=[],ambTimer=null,duck=1;
+function audio(){
+  if(ac){if(ac.state==="suspended")ac.resume();return ac}
+  ac=new (window.AudioContext||window.webkitAudioContext)();
+  master=ac.createGain();master.gain.value=1;
+  const comp=ac.createDynamicsCompressor();comp.threshold.value=-18;comp.ratio.value=3;
+  master.connect(comp);comp.connect(ac.destination);
+  ambBus=ac.createGain();ambBus.connect(master);
+  breathBus=ac.createGain();breathBus.connect(master);
+  fxBus=ac.createGain();fxBus.gain.value=.5;fxBus.connect(master);
+  makeBuffers();setVolumes();return ac;
+}
+let pinkBuf,brownBuf,whiteBuf;
+function makeBuffers(){
+  const n=ac.sampleRate*6;
+  pinkBuf=ac.createBuffer(1,n,ac.sampleRate);brownBuf=ac.createBuffer(1,n,ac.sampleRate);whiteBuf=ac.createBuffer(1,n,ac.sampleRate);
+  const p=pinkBuf.getChannelData(0),b=brownBuf.getChannelData(0),w=whiteBuf.getChannelData(0);
+  let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0,last=0;
+  for(let i=0;i<n;i++){const x=Math.random()*2-1;w[i]=x;
+    b0=.99886*b0+x*.0555179;b1=.99332*b1+x*.0750759;b2=.969*b2+x*.153852;b3=.8665*b3+x*.3104856;b4=.55*b4+x*.5329522;b5=-.7616*b5-x*.016898;
+    p[i]=(b0+b1+b2+b3+b4+b5+b6+x*.5362)*.11;b6=x*.115926;
+    last=(last+.02*x)/1.02;b[i]=last*3.5}
+  // emenda suave para o loop não estalar
+  [pinkBuf,brownBuf].forEach(bf=>{const d=bf.getChannelData(0),f=4000;for(let i=0;i<f;i++){const k=i/f;d[i]=d[i]*k+d[n-f+i]*(1-k)}});
+}
+function noiseSrc(buf){const s=ac.createBufferSource();s.buffer=buf;s.loop=true;s.loopEnd=buf.duration-4000/ac.sampleRate;return s}
+function setVolumes(){
+  if(!ac)return;const t=ac.currentTime;
+  ambBus.gain.setTargetAtTime(Math.pow(S.ambVol/100,1.6)*.9*duck,t,.8);
+  breathBus.gain.setTargetAtTime(Math.pow(S.breathVol/100,1.3)*1.1,t,.2);
+}
+function setDuck(on){duck=on?.6:1;setVolumes()}
+
+function stopAmbient(fade=2){
+  if(!ac)return;clearInterval(ambTimer);ambTimer=null;const t=ac.currentTime;
+  ambNodes.forEach(o=>{try{o.g.gain.setTargetAtTime(0,t,fade/3);o.srcs.forEach(s=>s.stop(t+fade+.5))}catch(e){}});ambNodes=[];
+}
+function startAmbient(){
+  audio();stopAmbient(1.5);const t=ac.currentTime;
+  const layer=(vol)=>{const g=ac.createGain();g.gain.value=0;g.gain.setTargetAtTime(vol,t+.1,2.5);g.connect(ambBus);const o={g,srcs:[]};ambNodes.push(o);return o};
+  if(S.nature==="chuva"){
+    const o=layer(.55);const s=noiseSrc(pinkBuf),hp=ac.createBiquadFilter(),lp=ac.createBiquadFilter();
+    hp.type="highpass";hp.frequency.value=380;lp.type="lowpass";lp.frequency.value=3200;
+    s.connect(hp);hp.connect(lp);lp.connect(o.g);s.start(t,Math.random()*4);o.srcs.push(s);
+    const o2=layer(.35);const r=noiseSrc(brownBuf),lp2=ac.createBiquadFilter();lp2.type="lowpass";lp2.frequency.value=500;
+    r.connect(lp2);lp2.connect(o2.g);r.start(t,Math.random()*4);o2.srcs.push(r);
+    // gotinhas
+    const drops=layer(.22);const dropTick=()=>{if(!ac)return;const n=2+(Math.random()*4|0);for(let i=0;i<n;i++){
+      const tt=ac.currentTime+Math.random()*.9,s=ac.createBufferSource(),bp=ac.createBiquadFilter(),g=ac.createGain();
+      s.buffer=whiteBuf;bp.type="bandpass";bp.frequency.value=1800+Math.random()*3500;bp.Q.value=8;
+      g.gain.setValueAtTime(0,tt);g.gain.linearRampToValueAtTime(.25+Math.random()*.35,tt+.004);g.gain.exponentialRampToValueAtTime(.001,tt+.06);
+      s.connect(bp);bp.connect(g);g.connect(drops.g);s.start(tt,Math.random()*5,.08)}};
+    ambTimer=setInterval(dropTick,900);
+  }else if(S.nature==="mar"){
+    const o=layer(1);const s=noiseSrc(brownBuf),lp=ac.createBiquadFilter(),wg=ac.createGain();lp.type="lowpass";lp.frequency.value=400;wg.gain.value=.2;
+    s.connect(lp);lp.connect(wg);wg.connect(o.g);s.start(t,Math.random()*4);o.srcs.push(s);
+    const o2=layer(.5);const f=noiseSrc(pinkBuf),hp=ac.createBiquadFilter(),fg=ac.createGain();hp.type="highpass";hp.frequency.value=1200;fg.gain.value=0;
+    f.connect(hp);hp.connect(fg);fg.connect(o2.g);f.start(t,Math.random()*4);o2.srcs.push(f);
+    let next=ac.currentTime+.5;
+    const wave=()=>{if(!ac)return;while(next<ac.currentTime+12){const d=7+Math.random()*5,pk=.55+Math.random()*.4;
+      wg.gain.setTargetAtTime(pk,next,d*.18);wg.gain.setTargetAtTime(.16,next+d*.45,d*.22);
+      lp.frequency.setTargetAtTime(1100+Math.random()*500,next,d*.2);lp.frequency.setTargetAtTime(380,next+d*.45,d*.25);
+      fg.gain.setTargetAtTime(pk*.5,next+d*.3,d*.1);fg.gain.setTargetAtTime(0,next+d*.5,d*.2);next+=d}};
+    wave();ambTimer=setInterval(wave,3000);
+  }else if(S.nature==="vento"){
+    const o=layer(.9);const s=noiseSrc(pinkBuf),bp=ac.createBiquadFilter();bp.type="bandpass";bp.frequency.value=500;bp.Q.value=1.4;
+    s.connect(bp);bp.connect(o.g);s.start(t,Math.random()*4);o.srcs.push(s);
+    const lfo=ac.createOscillator(),lg=ac.createGain();lfo.frequency.value=.07;lg.gain.value=260;lfo.connect(lg);lg.connect(bp.frequency);lfo.start();o.srcs.push(lfo);
+    const o2=layer(.4);const r=noiseSrc(brownBuf),lp=ac.createBiquadFilter();lp.type="lowpass";lp.frequency.value=260;r.connect(lp);lp.connect(o2.g);r.start(t,1);o2.srcs.push(r);
+    // grilos bem distantes
+    const cr=layer(.05);const cricket=()=>{if(!ac||Math.random()<.35)return;const tt=ac.currentTime+Math.random(),f=4200+Math.random()*600;
+      for(let k=0;k<3;k++){const os=ac.createOscillator(),g=ac.createGain(),st=tt+k*.11;os.frequency.value=f;
+        g.gain.setValueAtTime(0,st);g.gain.linearRampToValueAtTime(.5,st+.015);g.gain.linearRampToValueAtTime(0,st+.06);
+        os.connect(g);g.connect(cr.g);os.start(st);os.stop(st+.08)}};
+    ambTimer=setInterval(cricket,1700);
+  }
+  if(S.pad==="1"){
+    const o=layer(.22);const lp=ac.createBiquadFilter();lp.type="lowpass";lp.frequency.value=900;lp.Q.value=.3;lp.connect(o.g);
+    [110,164.81,246.94,277.18,329.63].forEach((f,i)=>{[-4,4].forEach(dt=>{
+      const os=ac.createOscillator(),g=ac.createGain(),lfo=ac.createOscillator(),lg=ac.createGain();
+      os.type=i<2?"sine":"triangle";os.frequency.value=f;os.detune.value=dt;g.gain.value=i<2?.11:.05;
+      lfo.frequency.value=.03+Math.random()*.05;lg.gain.value=g.gain.value*.8;lfo.connect(lg);lg.connect(g.gain);
+      os.connect(g);g.connect(lp);os.start(t);lfo.start(t);o.srcs.push(os,lfo)})});
+  }
+}
+/* respiração audível */
+function breath(kind,dur){
+  if(!ac||S.breathVol<=0)return;const t=ac.currentTime+.02;
+  const s=ac.createBufferSource(),bp=ac.createBiquadFilter(),lp=ac.createBiquadFilter(),g=ac.createGain();
+  s.buffer=pinkBuf;bp.type="bandpass";bp.Q.value=kind==="in"?.9:.7;lp.type="lowpass";lp.frequency.value=kind==="in"?2600:1900;
+  g.gain.setValueAtTime(0,t);
+  if(kind==="in"){bp.frequency.setValueAtTime(520,t);bp.frequency.linearRampToValueAtTime(1350,t+dur);
+    g.gain.linearRampToValueAtTime(.9,t+dur*.35);g.gain.linearRampToValueAtTime(.65,t+dur*.85);g.gain.linearRampToValueAtTime(0,t+dur)}
+  else{bp.frequency.setValueAtTime(950,t);bp.frequency.linearRampToValueAtTime(420,t+dur);
+    g.gain.linearRampToValueAtTime(.85,t+dur*.12);g.gain.linearRampToValueAtTime(.35,t+dur*.6);g.gain.linearRampToValueAtTime(0,t+dur)}
+  s.connect(bp);bp.connect(lp);lp.connect(g);g.connect(breathBus);s.start(t,Math.random()*5);s.stop(t+dur+.1);
+}
+/* sininho */
+function chime(vol=1){
+  audio();const t=ac.currentTime+.03;
+  [[528,1,4.5],[1056,.35,3],[1584,.12,2],[792,.2,3.5]].forEach(([f,a,d])=>{
+    const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.18*a*vol,t+.01);g.gain.exponentialRampToValueAtTime(.0005,t+d);
+    o.connect(g);g.connect(fxBus);o.start(t);o.stop(t+d+.1)});
+}
+
+/* ================= Voz ================= */
+let uid=0;const pend={};
+window.__ttsDone=id=>{const f=pend[id];if(f){delete pend[id];f()}};
+function sysVoices(){
+  if(L&&L.voices){try{return JSON.parse(L.voices())}catch(e){return[]}}
+  if(window.speechSynthesis)return speechSynthesis.getVoices().filter(v=>/^pt/i.test(v.lang)).map(v=>({id:v.name,name:v.name+(v.lang?" ("+v.lang+")":"")}));
+  return[];
+}
+function speak(text){
+  return new Promise(res=>{
+    const id="u"+(++uid);let done=false;const fin=()=>{if(done)return;done=true;delete pend[id];setDuck(false);res()};
+    pend[id]=fin;setDuck(true);
+    const rate=S.rate/100,pitch=S.pitch/100,vol=S.voiceVol/100;
+    setTimeout(fin,text.length*95/rate+4000); // garantia
+    if(vol<=0){setTimeout(fin,text.length*60);return}
+    if(L&&L.speak){L.speak(text,rate,pitch,vol,id);return}
+    if(window.speechSynthesis){
+      const u=new SpeechSynthesisUtterance(text);u.lang="pt-BR";u.rate=rate;u.pitch=pitch;u.volume=vol;
+      const v=speechSynthesis.getVoices().find(v=>v.name===S.voice)||speechSynthesis.getVoices().find(v=>/^pt-BR/i.test(v.lang));if(v)u.voice=v;
+      u.onend=fin;u.onerror=fin;speechSynthesis.speak(u);return}
+    setTimeout(fin,text.length*70);
+  });
+}
+function hush(){try{if(L&&L.stopSpeak)L.stopSpeak();else if(window.speechSynthesis)speechSynthesis.cancel()}catch(e){}Object.keys(pend).forEach(k=>pend[k]&&pend[k]())}
+
+/* ================= Motor da sessão ================= */
+let run=null;
+function newRun(){return{stop:false,paused:false,skip:false,id:Math.random()}}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function gate(r){while(r.paused&&!r.stop)await sleep(150);if(r.stop)throw"stop"}
+async function wait(r,sec){let left=sec*1000;while(left>0){await gate(r);if(r.skip){return}const s=Math.min(150,left);await sleep(s);left-=s}}
+async function say(r,text){await gate(r);if(r.skip)return;$("sub").textContent=text;await speak(text);await gate(r)}
+function cue(main,sub){if(main!==null&&main!==undefined)$("cue").textContent=main;if(sub!==undefined)$("sub").textContent=sub||""}
+function orb(scale,sec,bright){const o=$("orb");o.style.transitionDuration=sec+"s";o.style.transform=`scale(${scale})`;o.style.filter=`brightness(${bright||1})`}
+function big(t){$("big").textContent=t}
+const fmt=s=>{s=Math.max(0,Math.round(s));return (s/60|0)+":"+String(s%60).padStart(2,"0")};
+
+async function wimHof(r){
+  const pace={lento:[2.3,1.9],normal:[1.75,1.35],rapido:[1.3,1.05]}[S.pace];
+  const R=+S.rounds,N=+S.breaths,results=[];
+  $("sTitle").textContent="Wim Hof";
+  cue("Prepare-se","");orb(.55,2,.8);chime(.8);await wait(r,2);
+  await say(r,"Vamos começar. Sente ou deite num lugar confortável e seguro.");
+  await say(r,"Respire fundo pela barriga, enchendo até o peito... e solte, sem forçar. Siga o som da respiração.");
+  for(let k=1;k<=R;k++){
+    r.skip=false;$("sInfo").textContent=`Rodada ${k}/${R}`;
+    if(k>1)await say(r,`Rodada ${k}. Vamos de novo.`);
+    for(let i=1;i<=N&&!r.skip;i++){
+      await gate(r);big(i);cue("Inspire","");orb(1,pace[0],1.15);breath("in",pace[0]);
+      if(i===N-4)speak("mais cinco");if(i===Math.round(N/2)&&N>=30)speak("isso... continue");
+      await wait(r,pace[0]);if(r.skip)break;
+      cue("Solte","");orb(.6,pace[1],.85);breath("out",pace[1]);await wait(r,pace[1]);
+    }
+    r.skip=false;big("");
+    cue("Solte tudo... e segure","");orb(.5,3,.7);breath("out",3);
+    await say(r,"Solte todo o ar... e segure. Sem ar. Relaxe os ombros, relaxe o rosto.");
+    // retenção
+    const target=+S.holdBase+(k-1)*30;let held=0;const auto=S.hold==="auto";
+    cue("Sem ar",auto?"respire quando a voz pedir — ou toque para respirar antes":"toque quando precisar respirar");
+    $("tapBig").style.display="inline-block";r.tapped=false;r.warned=false;
+    const maxT=auto?target:180;
+    while(held<maxT&&!r.tapped&&!r.skip){await gate(r);await sleep(200);if(!r.paused){held+=.2;big(fmt(held))}
+      if(auto&&!r.warned&&held>=target-10){r.warned=true;chime(.25)}}
+    $("tapBig").style.display="none";r.skip=false;results.push(held);
+    cue("Inspire fundo... e segure","");orb(1.05,2.5,1.25);breath("in",2.6);
+    await say(r,"Inspire fundo... e segure.");
+    for(let s=15;s>0;s--){big(s);await wait(r,1);if(r.skip)break}
+    r.skip=false;big("");cue("Solte","");orb(.6,4,.85);breath("out",3.5);await say(r,"Solte... devagar.");await wait(r,2);
+    chime(.5);
+  }
+  $("sInfo").textContent="";
+  cue("Respire normalmente","");orb(.75,6,1);
+  await say(r,"Muito bem. Agora respire normalmente... e só sinta o corpo. Leve, vivo, presente.");
+  $("results").innerHTML=results.map((s,i)=>`Rodada ${i+1}: <b>${fmt(s)}</b>`).join("<br>");
+  await wait(r,20);
+}
+
+/* Roteiro da meditação: [texto, pausa-base em segundos] ou {b:n} = ciclos de respiração lenta */
+function calmScript(){
+  const a=(S.affirm||"").trim();
+  const sleepEnd=S.endMode==="fechar";
+  const sc=[
+    ["Oi. Que bom que você veio.",3],
+    ["Encontre uma posição confortável. Pode deitar, se quiser... deixe o corpo pesar no colchão.",5],
+    ["E, quando quiser, feche os olhos... devagar.",6],
+    ["Vamos respirar juntos. Respire fundo pelo nariz...",0],{b:1,first:true},
+    ["Isso. Mais algumas vezes, no seu tempo.",2],{b:4},
+    ["Agora deixe a respiração voltar ao natural. Você não precisa fazer nada... ela sabe o caminho.",8],
+    ["Leve a atenção para a testa... e deixe ela se soltar.",6],
+    ["Os olhos... pesados, macios, descansando.",6],
+    ["Solte a mandíbula. Os dentes se afastam um pouquinho... a língua descansa.",7],
+    ["Os ombros descem... como se alguém tirasse um peso de cima deles.",7],
+    ["Os braços ficam pesados... as mãos, quentinhas.",7],
+    ["O peito sobe e desce sozinho... a barriga, macia.",8],
+    ["O quadril afunda... as pernas se soltam...",7],
+    ["E os pés... relaxados, até a ponta dos dedos.",9],
+    ["O corpo inteiro agora está mais leve... e mais pesado ao mesmo tempo.",8],
+    ["Imagine uma escada à sua frente. Uma escada suave, com luz morna.",6],
+    ["Eu vou contar de dez até um. A cada número, você desce um degrau... e fica mais calmo.",5],
+    ["Dez...",4],["nove... mais fundo...",4],["oito...",4],["sete... tudo bem soltar...",5],["seis...",4],
+    ["cinco... cada vez mais tranquilo...",5],["quatro...",4],["três...",5],["dois... quase lá...",5],["um.",6],
+    ["Você chegou num lugar só seu. Pode ser uma praia à noite... um campo... um quarto quentinho. Do jeito que vier.",10],
+    ["Aqui, nada precisa ser resolvido agora. Os pensamentos passam como nuvens... e você só observa.",14],
+    ["Seu corpo sabe descansar. Ele está seguro.",12],
+  ];
+  if(a){sc.push(["Escute com calma, como algo que já é verdade...",4],[a,12],[a,14],[a,16])}
+  else sc.push(["Repita por dentro, bem devagar... eu estou em paz. Está tudo bem.",16],["Eu estou em paz.",16]);
+  sc.push(["Cada respiração te leva um pouco mais fundo... mais solto... mais calmo.",18]);
+  if(sleepEnd){
+    sc.push(["Agora você pode simplesmente ficar aqui... deixando o sono chegar sozinho.",12],
+            ["Eu vou ficando em silêncio... e o som vai te acompanhando.",8],
+            ["Boa noite.",4]);
+  }else{
+    sc.push(["Daqui a pouco eu vou contar de um até cinco, e você volta trazendo essa calma com você.",6],
+            ["Um... dois... sentindo o corpo...",4],["três... mexendo os dedos...",4],["quatro... respirando fundo...",4],
+            ["cinco. Abra os olhos quando quiser. Muito bem.",4]);
+  }
+  return sc;
+}
+async function slowBreaths(r,n,first){
+  for(let i=0;i<n;i++){await gate(r);
+    if(!first||i>0)cue("Inspire","");orb(1,4.5,1.15);breath("in",4.2);
+    if(i===0&&!first)speak("inspire...");await wait(r,4.5);
+    cue("Solte","");orb(.6,6,.85);breath("out",5.5);if(i===0)speak(first?"e solte... bem devagar.":"e solte...");await wait(r,6.5);
+  }
+  cue("","");
+}
+async function calm(r){
+  $("sTitle").textContent="Acalmar";const sc=calmScript();
+  // ajusta as pausas para bater a duração escolhida
+  let speechT=0,pauseT=0,breathT=0;
+  sc.forEach(x=>{if(x.b)breathT+=x.b*11;else{speechT+=x[0].length/(13*S.rate/100)+.6;pauseT+=x[1]}});
+  const k=Math.max(.35,Math.min(4,(S.calmMin*60-speechT-breathT)/pauseT));
+  orb(.6,3,.8);chime(.7);await wait(r,3);cue("","");
+  const total=S.calmMin*60,t0=Date.now();let pausedMs=0,pStart=0;
+  const clock=setInterval(()=>{if(r.paused){if(!pStart)pStart=Date.now();return}if(pStart){pausedMs+=Date.now()-pStart;pStart=0}
+    $("sInfo").textContent=fmt(total-(Date.now()-t0-pausedMs)/1000)},500);
+  // órbita lenta no fundo enquanto fala
+  let breathing=false;const idle=setInterval(()=>{if(!breathing){const o=$("orb");const big=o.dataset.b!=="1";o.dataset.b=big?"1":"0";orb(big?.85:.65,7,big?1:.8)}},7000);
+  try{
+    for(const x of sc){
+      if(x.b){breathing=true;await slowBreaths(r,x.b,x.first);breathing=false;continue}
+      await say(r,x[0]);r.skip=false;await wait(r,x[1]*k);r.skip=false;
+    }
+  }finally{clearInterval(clock);clearInterval(idle);$("sInfo").textContent=""}
+}
+async function sleepOnly(r){
+  $("sTitle").textContent="Dormir com som";cue("Boa noite","só respire... e deixe o som te levar");orb(.7,6,.8);
+  const idle=setInterval(()=>{const o=$("orb");const b=o.dataset.b!=="1";o.dataset.b=b?"1":"0";orb(b?.85:.65,8,b?.95:.75)},8000);
+  try{await fadeTail(r,+S.sleepMin)}finally{clearInterval(idle)}
+}
+/* som continua e vai sumindo; o volume cai na segunda metade */
+async function fadeTail(r,min){
+  if(min<=0||!ac)return;const T=min*60;let el=0;const start=ambBus.gain.value;
+  while(el<T){await wait(r,1);if(r.skip)break;if(!r.paused)el+=1;
+    const p=el/T,f=p<.5?1:Math.cos((p-.5)/.5*Math.PI/2);ambBus.gain.setTargetAtTime(start*f*f,ac.currentTime,.5);
+    $("sInfo").textContent=fmt(T-el)}
+}
+
+/* ================= Controle de telas ================= */
+function show(id){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id===id||(id==="settings"&&s.id==="home")))}
+let veilT=null;
+function wake(){$("veil").classList.remove("on");$("ctrls").style.opacity=1;if(L&&L.dim)L.dim(false);armVeil()}
+function armVeil(){clearTimeout(veilT);if(S.dim==="1"&&run)veilT=setTimeout(()=>{if(!run)return;$("veil").classList.add("on");$("ctrls").style.opacity=0;if(L&&L.dim)L.dim(true)},9000)}
+$("veil").addEventListener("pointerdown",e=>{e.preventDefault();if(run&&$("tapBig").style.display==="inline-block")run.tapped=true;wake()});
+$("session").addEventListener("pointerdown",armVeil);
+
+async function start(kind){
+  audio();startAmbient();show("session");$("results").innerHTML="";big("");cue("","");$("sInfo").textContent="";
+  if(L&&L.keepOn)L.keepOn(true);
+  const r=run=newRun();$("bPause").textContent="❚❚";armVeil();
+  try{
+    if(kind==="wim")await wimHof(r);else if(kind==="calm")await calm(r);else await sleepOnly(r);
+    r.skip=false;
+    if(S.endMode==="fechar"){
+      if(kind!=="sleep"){cue("",+S.tail?"o som vai sumindo devagar…":"");await fadeTail(r,+S.tail)}
+      await finish(true);
+    }else{chime(.6);cue("Pronto","toque ■ para voltar");$("sInfo").textContent="";
+      if(kind!=="sleep"&&+S.tail){await fadeTail(r,+S.tail)}while(!r.stop)await sleep(400)}
+  }catch(e){if(e!=="stop")console.error(e)}
+}
+async function finish(close){
+  const r=run;run=null;clearTimeout(veilT);hush();
+  if(ac){ambBus.gain.setTargetAtTime(0,ac.currentTime,1.2)}
+  if(close){$("bye").style.display="flex";if(L&&L.dim)L.dim(true);await sleep(4500);stopAmbient(.5);
+    if(L&&L.close){L.close();return}
+    $("bye").innerHTML='<div class="serif" style="font-size:22px">Boa noite.</div><div class="small" style="margin-top:12px">Pode bloquear a tela.</div>';return}
+  stopAmbient(1.5);if(L&&L.keepOn)L.keepOn(false);if(L&&L.dim)L.dim(false);
+  $("veil").classList.remove("on");show("home");
+}
+$("bStop").onclick=()=>{if(run){run.stop=true;finish(false)}};
+$("bPause").onclick=()=>{if(!run)return;run.paused=!run.paused;$("bPause").textContent=run.paused?"▶":"❚❚";
+  if(run.paused){hush();if(ac)ac.suspend()}else if(ac)ac.resume()};
+$("bSkip").onclick=()=>{if(run){run.skip=true;run.tapped=true;hush()}};
+$("tapBig").onclick=e=>{e.stopPropagation();if(run)run.tapped=true};
+document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>start(b.dataset.go));
+window.__back=()=>{if($("settings").classList.contains("on")){show("home");return true}
+  if(run){run.stop=true;finish(false);return true}return false};
+
+/* ================= Tela de ajustes ================= */
+function refreshMeta(){
+  $("metaCalm").textContent=S.calmMin+" min";
+  $("metaWim").textContent=`${S.rounds} rodada${S.rounds>1?"s":""} · ${S.breaths} respirações · retenção ${S.hold==="auto"?"automática":"no toque"}`;
+  $("metaSleep").textContent=(+S.sleepMin>=60?(S.sleepMin/60|0)+" h"+(S.sleepMin%60?" "+S.sleepMin%60:""):S.sleepMin+" min");
+  $("endChip").textContent=S.endMode==="fechar"?"fechar e deixar a tela apagar":"ficar aberto";
+  $("holdBaseTxt").textContent=fmt(+S.holdBase);
+}
+document.querySelectorAll(".seg").forEach(seg=>{
+  const k=seg.dataset.k;seg.dataset.o.split("|").forEach(p=>{const i=p.indexOf(":"),v=p.slice(0,i),lab=p.slice(i+1);
+    const b=document.createElement("button");b.textContent=lab;b.dataset.val=v;b.onclick=()=>{S[k]=v;save();paint();refreshMeta();
+      if(ac&&(k==="nature"||k==="pad")&&(run||$("settings").classList.contains("on")))startAmbient()};seg.appendChild(b)})});
+function paint(){
+  document.querySelectorAll(".seg").forEach(seg=>seg.querySelectorAll("button").forEach(b=>b.classList.toggle("on",String(S[seg.dataset.k])===b.dataset.val)));
+  document.querySelectorAll("[data-r]").forEach(r=>{r.value=S[r.dataset.r];const p=(r.value-r.min)/(r.max-r.min)*100;r.style.setProperty("--p",p+"%")});
+  document.querySelectorAll("[data-v]").forEach(s=>{const k=s.dataset.v,v=S[k];s.textContent=k==="rate"||k==="pitch"?(v/100).toFixed(2)+"×":v+"%"});
+}
+document.querySelectorAll("[data-r]").forEach(r=>r.oninput=()=>{S[r.dataset.r]=+r.value;save();paint();setVolumes()});
+$("affirm").value=S.affirm;$("affirm").oninput=e=>{S.affirm=e.target.value;save()};
+function fillVoices(){
+  const sel=$("voiceSel"),vs=sysVoices();sel.innerHTML='<option value="">Padrão do celular</option>'+vs.map(v=>`<option value="${v.id.replace(/"/g,"&quot;")}">${v.name}</option>`).join("");
+  sel.value=S.voice||"";if(L&&L.setVoice&&S.voice)L.setVoice(S.voice);
+}
+$("voiceSel").onchange=e=>{S.voice=e.target.value;save();if(L&&L.setVoice)L.setVoice(S.voice)};
+if(window.speechSynthesis)speechSynthesis.onvoiceschanged=fillVoices;
+window.__voicesReady=fillVoices;
+$("testVoice").onclick=()=>{hush();speak("Respire fundo... e solte, devagar. Você está seguro aqui.")};
+$("openSet").onclick=()=>{fillVoices();show("settings");$("settings").classList.add("on")};
+$("closeSet").onclick=()=>{hush();show("home")};
+$("endChip").onclick=()=>{S.endMode=S.endMode==="fechar"?"ficar":"fechar";save();paint();refreshMeta()};
+paint();refreshMeta();setTimeout(fillVoices,800);
+</script>
+</body>
+</html>

@@ -1137,6 +1137,22 @@ public class MainActivity extends Activity {
         player.addView(mediaButton("⏯", KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE));
         player.addView(mediaButton("⏭", KeyEvent.KEYCODE_MEDIA_NEXT));
 
+        // Leve Meditar: Wim Hof, meditação guiada e som para dormir
+        TextView medit = text(14, TEXT);
+        medit.setText("🌙  Meditar  ·  Wim Hof, acalmar e dormir");
+        medit.setSingleLine(true);
+        medit.setBackground(pill(SURFACE, LINE));
+        medit.setPadding(dp(16), dp(14), dp(16), dp(14));
+        medit.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                try { startActivity(new Intent(MainActivity.this, MeditacaoActivity.class)); }
+                catch (Exception ignored) { }
+            }
+        });
+        LinearLayout.LayoutParams mlp = lp(MATCH, WRAP);
+        mlp.bottomMargin = dp(4);
+        page.addView(medit, mlp);
+
         // Post Leve: "Postar próximo" direto do launcher (só aparece com o app instalado)
         postCard = new LinearLayout(this);
         postCard.setOrientation(LinearLayout.HORIZONTAL);

@@ -73,6 +73,22 @@
             </intent-filter>
         </activity>
 
+        <!-- Leve Meditar: Wim Hof, meditação guiada e som para dormir (abre pelo cartão em Essenciais) -->
+        <activity
+            android:name=".MeditacaoActivity"
+            android:exported="true"
+            android:label="Leve Meditar"
+            android:taskAffinity="com.leve.launcher.meditar"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:theme="@android:style/Theme.Black.NoTitleBar"
+            android:configChanges="orientation|screenSize|keyboard|keyboardHidden|screenLayout|uiMode">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <provider
             android:name=".ApkProvider"
             android:authorities="${applicationId}.apk"

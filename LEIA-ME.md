@@ -1,4 +1,4 @@
-# Leve Launcher v16
+# Leve Launcher v17
 
 Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no nome da aba.
 
@@ -10,6 +10,12 @@ Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no n
 - **Telas pequenas e letra grande**: em celular de tela menor (ou com a letra do sistema aumentada) o topo
   fica compacto — relógio e botões Limpar/Config/Bateria na mesma linha — para sobrar espaço para os apps.
 
+- **🌙 Meditar** (novo, cartão na aba Essenciais e ícone "Leve Meditar" na lista de apps):
+  **Wim Hof** (respirações guiadas pelo som, retenção automática ou no toque, recuperação),
+  **Acalmar & adormecer** (respiração lenta, relaxamento do corpo e hipnose leve descendo de 10 a 1,
+  com frase opcional para o subconsciente) e **Dormir com som**. Chuva, mar ou vento noturno + música suave,
+  tudo gerado no próprio app (sem baixar nada). Voz do "Texto para fala" do celular: escolha a voz,
+  velocidade, tom e volume. Ao terminar, o som some devagar, o app fecha e a tela apaga sozinha.
 - **Essenciais**: seus atalhos (YMusic, Nyx, Instagram e clones, Threads, Google Flow,
   Claude, ChatGPT, Brave, TikTok já entram sozinhos se estiverem instalados) + controle de música.
   "+ Adicionar atalho" cria atalhos de: app instalado, site/link, conversa do WhatsApp (número),
