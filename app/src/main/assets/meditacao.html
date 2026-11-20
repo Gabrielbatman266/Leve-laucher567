@@ -162,11 +162,13 @@ select,input[type=text]{width:100%;background:#0b0a10;color:var(--text);border:1
   </div>
 
   <div class="grp"><h3>Voz</h3>
-    <div class="row"><label>Voz</label><select id="voiceSel"><option value="">Padrão do celular</option></select>
+    <div class="row"><label>Quem fala</label><div class="seg" data-k="voiceSrc" data-o="eleven:Miranda (ElevenLabs)|celular:Voz do celular"></div>
+      <p class="small">A Miranda é uma voz gravada, suave e natural, que funciona sem internet. A frase que você escrever para o subconsciente é lida pela voz do celular.</p></div>
+    <div class="row"><label>Voz do celular</label><select id="voiceSel"><option value="">Padrão do celular</option></select>
       <p class="small" id="voiceHint">As vozes vêm do "Texto para fala" do celular. Para mais vozes em português: Configurações → Acessibilidade → Saída de texto para fala → Google → Instalar dados de voz.</p></div>
     <div class="row"><label>Volume da voz <span data-v="voiceVol"></span></label><input type="range" min="0" max="100" data-r="voiceVol"></div>
-    <div class="row"><label>Velocidade <span data-v="rate"></span></label><input type="range" min="55" max="110" data-r="rate"></div>
-    <div class="row"><label>Tom (mais grave ↔ mais agudo) <span data-v="pitch"></span></label><input type="range" min="60" max="120" data-r="pitch">
+    <div class="row"><label>Velocidade (voz do celular) <span data-v="rate"></span></label><input type="range" min="55" max="110" data-r="rate"></div>
+    <div class="row"><label>Tom da voz do celular <span data-v="pitch"></span></label><input type="range" min="60" max="120" data-r="pitch">
       <button class="testbtn" id="testVoice">▶ Ouvir a voz</button></div>
   </div>
 
@@ -199,7 +201,7 @@ select,input[type=text]{width:100%;background:#0b0a10;color:var(--text);border:1
 <script>
 "use strict";
 /* ================= Ajustes salvos ================= */
-const DEF={nature:"chuva",pad:"1",ambVol:28,voice:"",voiceVol:85,rate:78,pitch:88,
+const DEF={nature:"chuva",pad:"1",ambVol:28,voiceSrc:"eleven",voice:"",voiceVol:85,rate:78,pitch:88,
   rounds:"3",breaths:"30",pace:"normal",hold:"auto",holdBase:"60",breathVol:55,
   calmMin:"10",affirm:"",endMode:"fechar",tail:"10",sleepMin:"30",dim:"1"};
 let S=Object.assign({},DEF);
@@ -322,7 +324,9 @@ function chime(vol=1){
 }
 
 /* ================= Voz ================= */
-let uid=0;const pend={};
+const CLIPS={"vamos começar. sente ou deite num lugar confortável e seguro": "w_intro1", "respire fundo pela barriga, enchendo até o peito... e solte, sem forçar. siga o som da respiração": "w_intro2", "rodada dois. vamos de novo": "w_next", "rodada três. vamos de novo": "w_next", "rodada quatro. vamos de novo": "w_next", "rodada cinco. vamos de novo": "w_next", "mais cinco": "w_mais5", "isso... continue": "w_cont", "solte todo o ar... e segure. sem ar. relaxe os ombros, relaxe o rosto": "w_hold", "inspire fundo... e segure": "w_rec", "solte... devagar": "w_solte", "muito bem. agora respire normalmente... e só sinta o corpo. leve, vivo, presente": "w_end", "inspire": "b_in", "e solte": "b_out", "e solte... bem devagar": "b_out1", "oi. que bom que você veio": "c01", "encontre uma posição confortável. pode deitar, se quiser... deixe o corpo pesar no colchão": "c02", "e, quando quiser, feche os olhos... devagar": "c03", "vamos respirar juntos. respire fundo pelo nariz": "c04", "isso. mais algumas vezes, no seu tempo": "c05", "agora deixe a respiração voltar ao natural. você não precisa fazer nada... ela sabe o caminho": "c06", "leve a atenção para a testa... e deixe ela se soltar": "c07", "os olhos... pesados, macios, descansando": "c08", "solte a mandíbula. os dentes se afastam um pouquinho... a língua descansa": "c09", "os ombros descem... como se alguém tirasse um peso de cima deles": "c10", "os braços ficam pesados... as mãos, quentinhas": "c11", "o peito sobe e desce sozinho... a barriga, macia": "c12", "o quadril afunda... as pernas se soltam": "c13", "e os pés... relaxados, até a ponta dos dedos": "c14", "o corpo inteiro agora está mais leve... e mais pesado ao mesmo tempo": "c15", "imagine uma escada à sua frente. uma escada suave, com luz morna": "c16", "eu vou contar de dez até um. a cada número, você desce um degrau... e fica mais calmo": "c17", "dez": "n10", "nove... mais fundo": "n9", "oito": "n8", "sete... tudo bem soltar": "n7", "seis": "n6", "cinco... cada vez mais tranquilo": "n5", "quatro": "n4", "três": "n3", "dois... quase lá": "n2", "um": "n1", "você chegou num lugar só seu. pode ser uma praia à noite... um campo... um quarto quentinho. do jeito que vier": "c18", "aqui, nada precisa ser resolvido agora. os pensamentos passam como nuvens... e você só observa": "c19", "seu corpo sabe descansar. ele está seguro": "c20", "escute com calma, como algo que já é verdade": "a0", "repita por dentro, bem devagar... eu estou em paz. está tudo bem": "a1", "eu estou em paz": "a2", "cada respiração te leva um pouco mais fundo... mais solto... mais calmo": "c21", "agora você pode simplesmente ficar aqui... deixando o sono chegar sozinho": "s1", "eu vou ficando em silêncio... e o som vai te acompanhando": "s2", "boa noite": "s3", "daqui a pouco eu vou contar de um até cinco, e você volta trazendo essa calma com você": "v1", "um... dois... sentindo o corpo": "v2", "três... mexendo os dedos": "v3", "quatro... respirando fundo": "v4", "cinco. abra os olhos quando quiser. muito bem": "v5"};
+let uid=0;const pend={};let curAudio=null;
+function clipFor(t){if(S.voiceSrc!=="eleven")return null;if(/^Rodada /.test(t))return "w_next";return CLIPS[t.trim().toLowerCase().replace(/[.\s]+$/,"")]||null}
 window.__ttsDone=id=>{const f=pend[id];if(f){delete pend[id];f()}};
 function sysVoices(){
   if(L&&L.voices){try{return JSON.parse(L.voices())}catch(e){return[]}}
@@ -336,15 +340,22 @@ function speak(text){
     const rate=S.rate/100,pitch=S.pitch/100,vol=S.voiceVol/100;
     setTimeout(fin,text.length*95/rate+4000); // garantia
     if(vol<=0){setTimeout(fin,text.length*60);return}
+    const ck=clipFor(text);
+    if(ck){try{if(curAudio)curAudio.pause();const au=new Audio("voz/"+ck+".mp3");curAudio=au;au.volume=vol;
+      au.onended=()=>{if(curAudio===au)curAudio=null;fin()};au.onerror=()=>{curAudio=null;tts(text,rate,pitch,vol,id,fin)};
+      const pr=au.play();if(pr&&pr.catch)pr.catch(()=>{curAudio=null;tts(text,rate,pitch,vol,id,fin)});return}catch(e){}}
+    tts(text,rate,pitch,vol,id,fin);
+  });
+}
+function tts(text,rate,pitch,vol,id,fin){
     if(L&&L.speak){L.speak(text,rate,pitch,vol,id);return}
     if(window.speechSynthesis){
       const u=new SpeechSynthesisUtterance(text);u.lang="pt-BR";u.rate=rate;u.pitch=pitch;u.volume=vol;
       const v=speechSynthesis.getVoices().find(v=>v.name===S.voice)||speechSynthesis.getVoices().find(v=>/^pt-BR/i.test(v.lang));if(v)u.voice=v;
       u.onend=fin;u.onerror=fin;speechSynthesis.speak(u);return}
     setTimeout(fin,text.length*70);
-  });
 }
-function hush(){try{if(L&&L.stopSpeak)L.stopSpeak();else if(window.speechSynthesis)speechSynthesis.cancel()}catch(e){}Object.keys(pend).forEach(k=>pend[k]&&pend[k]())}
+function hush(){try{if(curAudio){curAudio.pause();curAudio=null}if(L&&L.stopSpeak)L.stopSpeak();else if(window.speechSynthesis)speechSynthesis.cancel()}catch(e){}Object.keys(pend).forEach(k=>pend[k]&&pend[k]())}
 
 /* ================= Motor da sessão ================= */
 let run=null;
@@ -546,7 +557,7 @@ function fillVoices(){
 $("voiceSel").onchange=e=>{S.voice=e.target.value;save();if(L&&L.setVoice)L.setVoice(S.voice)};
 if(window.speechSynthesis)speechSynthesis.onvoiceschanged=fillVoices;
 window.__voicesReady=fillVoices;
-$("testVoice").onclick=()=>{hush();speak("Respire fundo... e solte, devagar. Você está seguro aqui.")};
+$("testVoice").onclick=()=>{hush();speak("Seu corpo sabe descansar. Ele está seguro.")};
 $("openSet").onclick=()=>{fillVoices();show("settings");$("settings").classList.add("on")};
 $("closeSet").onclick=()=>{hush();show("home")};
 $("endChip").onclick=()=>{S.endMode=S.endMode==="fechar"?"ficar":"fechar";save();paint();refreshMeta()};

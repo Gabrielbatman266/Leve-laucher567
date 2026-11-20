@@ -14,8 +14,8 @@ Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no n
   **Wim Hof** (respirações guiadas pelo som, retenção automática ou no toque, recuperação),
   **Acalmar & adormecer** (respiração lenta, relaxamento do corpo e hipnose leve descendo de 10 a 1,
   com frase opcional para o subconsciente) e **Dormir com som**. Chuva, mar ou vento noturno + música suave,
-  tudo gerado no próprio app (sem baixar nada). Voz do "Texto para fala" do celular: escolha a voz,
-  velocidade, tom e volume. Ao terminar, o som some devagar, o app fecha e a tela apaga sozinha.
+  tudo gerado no próprio app (sem baixar nada). Voz gravada da Miranda (ElevenLabs), suave e offline;
+  ou, se preferir, a voz do "Texto para fala" do celular (escolha a voz, velocidade, tom e volume). Ao terminar, o som some devagar, o app fecha e a tela apaga sozinha.
 - **Essenciais**: seus atalhos (YMusic, Nyx, Instagram e clones, Threads, Google Flow,
   Claude, ChatGPT, Brave, TikTok já entram sozinhos se estiverem instalados) + controle de música.
   "+ Adicionar atalho" cria atalhos de: app instalado, site/link, conversa do WhatsApp (número),
