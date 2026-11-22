@@ -322,6 +322,7 @@ public class MainActivity extends Activity {
         lastUsageAt = 0;
         updateMusicSettings();
         updatePostCard();
+        updateGratCard();
         updateDefaultBanner();
         updateProtectRows();
         ui.removeCallbacks(tick);
@@ -1114,6 +1115,31 @@ public class MainActivity extends Activity {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
 
+        // Caderno da Gratidão: primeiro cartão da tela, mostra uma gratidão sua sorteada
+        gratCard = new LinearLayout(this);
+        gratCard.setOrientation(LinearLayout.VERTICAL);
+        gratCard.setBackground(pill(SURFACE, ACCENT));
+        gratCard.setPadding(dp(16), dp(12), dp(16), dp(12));
+        LinearLayout.LayoutParams gcp = lp(MATCH, WRAP);
+        gcp.topMargin = dp(8);
+        page.addView(gratCard, gcp);
+        gratTitle = text(15, TEXT);
+        gratTitle.setSingleLine(true);
+        gratTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        gratCard.addView(gratTitle);
+        gratLine = text(13, MUTED);
+        gratLine.setSingleLine(true);
+        gratLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        gratLine.setPadding(0, dp(3), 0, 0);
+        gratCard.addView(gratLine);
+        gratCard.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                try { startActivity(new Intent(MainActivity.this, GratidaoActivity.class)); }
+                catch (Exception ignored) { }
+            }
+        });
+        updateGratCard();
+
         // Mini player: controla a música que estiver tocando (YMusic, Nyx etc.)
         LinearLayout player = new LinearLayout(this);
         player.setOrientation(LinearLayout.HORIZONTAL);
@@ -1121,7 +1147,7 @@ public class MainActivity extends Activity {
         player.setBackground(pill(SURFACE, LINE));
         player.setPadding(dp(16), dp(4), dp(8), dp(4));
         LinearLayout.LayoutParams pp = lp(MATCH, WRAP);
-        pp.topMargin = dp(8);
+        pp.topMargin = dp(6);
         pp.bottomMargin = dp(4);
         page.addView(player, pp);
 
@@ -1226,6 +1252,22 @@ public class MainActivity extends Activity {
 
     // ---------- Post Leve ----------
     static final String POST_LEVE = "com.leve.analise";
+    private LinearLayout gratCard;
+    private TextView gratTitle, gratLine;
+
+    /** Atualiza o cartão do Caderno da Gratidão (contagem de hoje e uma gratidão sorteada). */
+    private void updateGratCard() {
+        if (gratCard == null) return;
+        org.json.JSONArray a = GratidaoActivity.load(this);
+        int hoje = GratidaoActivity.countToday(a), seq = GratidaoActivity.streak(a);
+        String t = "🙏  Caderno da Gratidão";
+        if (hoje > 0) t += "  ·  hoje " + hoje;
+        if (seq > 1) t += "  ·  🔥" + seq;
+        gratTitle.setText(t);
+        String l = GratidaoActivity.lembrete(a);
+        gratLine.setText(l != null ? "Grato por  " + l : "Toque e anote pelo que você é grato hoje");
+    }
+
     private LinearLayout postCard;
     private TextView postInfo;
 

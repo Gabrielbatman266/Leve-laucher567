@@ -89,6 +89,16 @@
             </intent-filter>
         </activity>
 
+        <!-- Caderno da Gratidão (abre pelo primeiro cartão em Essenciais) -->
+        <activity
+            android:name=".GratidaoActivity"
+            android:exported="false"
+            android:label="Caderno da Gratidão"
+            android:screenOrientation="portrait"
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:windowSoftInputMode="adjustResize|stateHidden"
+            android:configChanges="orientation|screenSize|keyboard|keyboardHidden|screenLayout|uiMode" />
+
         <provider
             android:name=".ApkProvider"
             android:authorities="${applicationId}.apk"

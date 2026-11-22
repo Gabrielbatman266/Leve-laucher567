@@ -10,6 +10,10 @@ Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no n
 - **Telas pequenas e letra grande**: em celular de tela menor (ou com a letra do sistema aumentada) o topo
   fica compacto — relógio e botões Limpar/Config/Bateria na mesma linha — para sobrar espaço para os apps.
 
+- **🙏 Caderno da Gratidão** (novo, primeiro cartão da aba Essenciais): anote pelo que você é grato —
+  objetos, pessoas, momentos, lugares, saúde ou outro. Fica separado por dia (Hoje, Ontem…), com filtro por tipo,
+  contagem de dias seguidos e, no cartão da tela inicial, uma gratidão sua sorteada para lembrar.
+  Segure um item para editar ou apagar. Fica salvo só no celular.
 - **🌙 Meditar** (novo, cartão na aba Essenciais e ícone "Leve Meditar" na lista de apps):
   **Wim Hof** (respirações guiadas pelo som, retenção automática ou no toque, recuperação),
   **Acalmar & adormecer** (respiração lenta, relaxamento do corpo e hipnose leve descendo de 10 a 1,
