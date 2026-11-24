@@ -1263,6 +1263,8 @@ public class MainActivity extends Activity {
         String t = "🙏  Caderno da Gratidão";
         if (hoje > 0) t += "  ·  hoje " + hoje;
         if (seq > 1) t += "  ·  🔥" + seq;
+        int[] metas = GratidaoActivity.metasResumo(this);
+        if (metas[1] > 0) t += "  ·  🎯 " + metas[0] + "/" + metas[1];
         gratTitle.setText(t);
         String l = GratidaoActivity.lembrete(a);
         gratLine.setText(l != null ? "Grato por  " + l : "Toque e anote pelo que você é grato hoje");

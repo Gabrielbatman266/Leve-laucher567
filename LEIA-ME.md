@@ -10,10 +10,15 @@ Tela inicial minimalista com fundo espacial. Deslize para os lados ou toque no n
 - **Telas pequenas e letra grande**: em celular de tela menor (ou com a letra do sistema aumentada) o topo
   fica compacto — relógio e botões Limpar/Config/Bateria na mesma linha — para sobrar espaço para os apps.
 
-- **🙏 Caderno da Gratidão** (novo, primeiro cartão da aba Essenciais): anote pelo que você é grato —
-  objetos, pessoas, momentos, lugares, saúde ou outro. Fica separado por dia (Hoje, Ontem…), com filtro por tipo,
-  contagem de dias seguidos e, no cartão da tela inicial, uma gratidão sua sorteada para lembrar.
-  Segure um item para editar ou apagar. Fica salvo só no celular.
+- **🙏 Caderno da Gratidão** (primeiro cartão da aba Essenciais), com 3 abas:
+  - **Gratidão**: anote objetos, pessoas, momentos, lugares, saúde… e, se quiser, **o porquê** (técnica das
+    "3 coisas boas"). Meta de 3 por dia, dias seguidos 🔥, pergunta do dia que muda o foco, filtro por tipo.
+  - **Metas**: adicione metas e **marque ☑ quando conseguir** — a conquista entra sozinha no caderno.
+    **🙏 Já é meu**: agradeça pela meta no presente, como se já tivesse acontecido.
+  - **Técnica**: como fazer o caderno do jeito que a pesquisa mostra que funciona (específico, pessoas,
+    subtração mental, surpresas, variar, frequência, reler) + exercícios: **Subtração mental**,
+    **Carta de gratidão** (salva e envia pelo WhatsApp etc.) e **Relembrar** gratidões antigas.
+  Segure um item ou meta para editar ou apagar. Fica salvo só no celular.
 - **🌙 Meditar** (novo, cartão na aba Essenciais e ícone "Leve Meditar" na lista de apps):
   **Wim Hof** (respirações guiadas pelo som, retenção automática ou no toque, recuperação),
   **Acalmar & adormecer** (respiração lenta, relaxamento do corpo e hipnose leve descendo de 10 a 1,
